@@ -10,6 +10,7 @@ function RequireUserLoggedIn() {
     const { checkAuthen } = useContext(AuthContext);
 
     const { pathname } = useLocation();
+    console.log("[RequireUserLoggedIn] pathname (URL web) hien tai : " + pathname);
 
     useEffect(() => {
         console.log("[RequireUserLoggedIn] đang chạy useEffect() của component RequireUserLoggedIn !");
@@ -55,6 +56,7 @@ function RequireUserLoggedIn() {
         };
 
     }, [pathname, checkAuthen]);
+    // [pathname, checkAuthen]
 
 
     // Đang kiểm tra JWT
@@ -70,14 +72,14 @@ function RequireUserLoggedIn() {
     // JWT không hợp lệ / hết hạn / không tồn tại
     if (authenStatus === "unauthenticated") {
         console.log("[RequireUserLoggedIn] Value hien tai cua bien useState authenStatus la unauthenticated ! Chuyen qua trang login !");
-        // return (
-        //     <Navigate to="/login" replace state={{ from: pathname }}/>
-        // );
         return (
-            <div>
-                <p>Bạn chưa đăng nhập ! Vui lòng đăng nhập nhé !</p>
-            </div>
-        )
+            <Navigate to="/login" replace state={{ from: pathname }}/>
+        );
+        // return (
+        //     <div>
+        //         <p>Bạn chưa đăng nhập ! Vui lòng đăng nhập nhé !</p>
+        //     </div>
+        // )
     }
 
     // Không thể kết nối server
