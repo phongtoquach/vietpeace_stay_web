@@ -1,0 +1,1516 @@
+/* ==========================================================================
+   VinaStay Hospitality Group - Component Stylesheets
+   Standard CSS3
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Site Header & Navigation
+   -------------------------------------------------------------------------- */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-border);
+  transition: box-shadow var(--transition-normal);
+}
+
+.header-inner {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.brand-logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-sunshine);
+  color: var(--color-navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.25rem;
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--transition-normal);
+}
+
+.brand-link:hover .brand-logo-icon {
+  transform: scale(1.05);
+}
+
+.brand-text {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--color-navy);
+}
+
+.brand-text span {
+  color: var(--color-sunshine);
+}
+
+.main-navigation {
+  display: none;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+@media (min-width: 768px) {
+  .main-navigation {
+    display: flex;
+  }
+}
+
+.nav-item-link {
+  position: relative;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-slate);
+  padding: 6px 0;
+  transition: color var(--transition-fast);
+}
+
+.nav-item-link:hover {
+  color: var(--color-navy);
+}
+
+.nav-item-link.active {
+  color: var(--color-navy);
+}
+
+.nav-item-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--color-sunshine);
+  border-radius: var(--radius-full);
+}
+
+.header-actions {
+  display: none;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .header-actions {
+    display: flex;
+  }
+}
+
+.user-menu-wrapper {
+  position: relative;
+}
+
+.user-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-ivory);
+  transition: background-color var(--transition-fast);
+}
+
+.user-menu-btn:hover {
+  background-color: var(--color-sunshine-light);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-navy);
+  color: var(--color-sunshine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-navy);
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-dropdown-menu {
+  position: absolute;
+  right: 0;
+  margin-top: 8px;
+  width: 224px;
+  background-color: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border);
+  padding: 6px 0;
+  z-index: 50;
+  animation: fadeIn 150ms ease-out;
+}
+
+.dropdown-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dropdown-header-subtitle {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-slate);
+}
+
+.dropdown-header-email {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  color: var(--color-navy);
+  transition: background-color var(--transition-fast);
+}
+
+.dropdown-link:hover {
+  background-color: var(--color-ivory);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: var(--color-border);
+  margin: 4px 0;
+}
+
+.dropdown-logout-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  color: #E11D48;
+  text-align: left;
+  transition: background-color var(--transition-fast);
+}
+
+.dropdown-logout-btn:hover {
+  background-color: #FFF1F2;
+}
+
+.auth-btn-login {
+  padding: 8px 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-navy);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+
+.auth-btn-login:hover {
+  background-color: #F8FAFC;
+}
+
+.auth-btn-register {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  background-color: var(--color-sunshine);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  transition: background-color var(--transition-fast);
+}
+
+.auth-btn-register:hover {
+  background-color: var(--color-sunshine-hover);
+}
+
+.mobile-menu-toggle {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  color: var(--color-navy);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+
+@media (min-width: 768px) {
+  .mobile-menu-toggle {
+    display: none;
+  }
+}
+
+.mobile-menu-toggle:hover {
+  background-color: #F1F5F9;
+}
+
+.mobile-drawer {
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-white);
+  padding: 12px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .mobile-drawer {
+    display: none;
+  }
+}
+
+.mobile-nav-link {
+  display: block;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-navy);
+}
+
+.mobile-nav-link:hover {
+  background-color: var(--color-ivory);
+}
+
+/* --------------------------------------------------------------------------
+   2. Site Footer
+   -------------------------------------------------------------------------- */
+.site-footer {
+  background-color: var(--color-navy-dark);
+  color: #CBD5E1;
+  padding-top: 3.5rem;
+  padding-bottom: 2rem;
+  border-top: 1px solid rgba(35, 59, 83, 0.5);
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+  padding-bottom: 3rem;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+@media (min-width: 768px) {
+  .footer-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .footer-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.footer-heading {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-white);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.footer-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  font-size: 0.875rem;
+}
+
+.footer-link {
+  color: #94A3B8;
+  transition: color var(--transition-fast);
+}
+
+.footer-link:hover {
+  color: var(--color-white);
+}
+
+.footer-bottom {
+  padding-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: #64748B;
+}
+
+@media (min-width: 640px) {
+  .footer-bottom {
+    flex-direction: row;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. Hero Slider Component
+   -------------------------------------------------------------------------- */
+.hero-slider {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  overflow: hidden;
+  background-color: var(--color-navy-dark);
+  user-select: none;
+}
+
+@media (min-width: 640px) {
+  .hero-slider {
+    height: 460px;
+  }
+}
+
+@media (min-width: 768px) {
+  .hero-slider {
+    height: 500px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-slider {
+    height: 520px;
+  }
+}
+
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  transition: opacity 700ms ease-in-out;
+  opacity: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.hero-slide.active {
+  opacity: 1;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.hero-slide-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.05);
+  transition: transform 1000ms ease-out;
+}
+
+.hero-slide-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, #172A3C, rgba(23, 42, 60, 0.6), rgba(23, 42, 60, 0.3));
+}
+
+.hero-slide-content-wrapper {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+}
+
+.hero-slide-inner {
+  max-width: 42rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hero-slide-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-sunshine);
+  color: var(--color-navy);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: var(--shadow-sm);
+  width: fit-content;
+}
+
+.hero-slide-headline {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-white);
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+@media (min-width: 640px) {
+  .hero-slide-headline {
+    font-size: 2.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-slide-headline {
+    font-size: 3rem;
+  }
+}
+
+.hero-slide-description {
+  font-size: 0.875rem;
+  color: #E2E8F0;
+  max-width: 36rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+@media (min-width: 640px) {
+  .hero-slide-description {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-slide-description {
+    font-size: 1.125rem;
+  }
+}
+
+.hero-slide-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-sunshine);
+  color: var(--color-navy);
+  font-weight: 700;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-fast);
+  width: fit-content;
+}
+
+.hero-slide-cta-btn:hover {
+  background-color: var(--color-sunshine-hover);
+  transform: translateY(-2px);
+}
+
+.slider-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background-color: rgba(255, 255, 255, 0.8);
+  color: var(--color-navy);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.slider-nav-btn:hover {
+  background-color: var(--color-white);
+}
+
+.slider-nav-btn--prev {
+  left: 1rem;
+}
+
+.slider-nav-btn--next {
+  right: 1rem;
+}
+
+.slider-indicators {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background-color: rgba(255, 255, 255, 0.6);
+  transition: all 300ms ease;
+}
+
+.slider-dot:hover {
+  background-color: var(--color-white);
+}
+
+.slider-dot.active {
+  width: 28px;
+  background-color: var(--color-sunshine);
+}
+
+/* --------------------------------------------------------------------------
+   4. Hotel Search Form & React DatePicker
+   -------------------------------------------------------------------------- */
+.hotel-search-card {
+  background-color: var(--color-white);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-border);
+  padding: 0.75rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .hotel-search-card {
+    padding: 1rem;
+  }
+}
+
+.hotel-search-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .hotel-search-form-grid {
+    grid-template-columns: repeat(12, 1fr);
+  }
+  .search-col-destination {
+    grid-column: span 4;
+  }
+  .search-col-date {
+    grid-column: span 2;
+  }
+  .search-col-guests {
+    grid-column: span 3;
+  }
+  .search-col-submit {
+    grid-column: span 1;
+  }
+}
+
+.search-field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-slate);
+  margin-bottom: 4px;
+  padding-left: 4px;
+}
+
+.search-input-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-white);
+  transition: all var(--transition-fast);
+  cursor: text;
+}
+
+.search-input-box:hover {
+  border-color: var(--color-border-dark);
+}
+
+.search-input-box:focus-within {
+  border-color: var(--color-sunshine);
+  box-shadow: 0 0 0 2px rgba(245, 184, 46, 0.2);
+}
+
+.search-text-input {
+  width: 100%;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  border: none;
+  outline: none;
+}
+
+.search-text-input::placeholder {
+  color: var(--color-slate-light);
+  font-weight: 500;
+}
+
+.search-btn-submit {
+  width: 100%;
+  height: 44px;
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-sunshine);
+  color: var(--color-navy);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+}
+
+.search-btn-submit:hover {
+  background-color: var(--color-sunshine-hover);
+  box-shadow: var(--shadow-md);
+}
+
+/* React DatePicker Customization */
+.datepicker-field-wrap {
+  width: 100%;
+  position: relative;
+}
+
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker__input-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.custom-datepicker-input {
+  width: 100%;
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .custom-datepicker-input {
+    font-size: 0.875rem;
+  }
+}
+
+/* React DatePicker Calendar Popup Theming */
+.react-datepicker {
+  font-family: var(--font-sans) !important;
+  font-size: 0.875rem !important;
+  background-color: var(--color-white) !important;
+  color: var(--color-navy) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-2xl) !important;
+  overflow: hidden !important;
+  z-index: 60 !important;
+}
+
+.react-datepicker__triangle {
+  display: none !important;
+}
+
+.react-datepicker__header {
+  background-color: var(--color-ivory) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  padding: 12px 0 8px !important;
+}
+
+.react-datepicker__current-month {
+  color: var(--color-navy) !important;
+  font-weight: 800 !important;
+  font-size: 0.9375rem !important;
+  margin-bottom: 6px !important;
+}
+
+.react-datepicker__day-name {
+  color: var(--color-slate) !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;
+  width: 2.25rem !important;
+  line-height: 2.25rem !important;
+  margin: 2px !important;
+}
+
+.react-datepicker__day {
+  color: var(--color-navy) !important;
+  font-weight: 600 !important;
+  font-size: 0.8125rem !important;
+  width: 2.25rem !important;
+  line-height: 2.25rem !important;
+  margin: 2px !important;
+  border-radius: var(--radius-md) !important;
+  transition: all var(--transition-fast) !important;
+}
+
+.react-datepicker__day:hover {
+  background-color: var(--color-sunshine-light) !important;
+  color: var(--color-navy) !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: var(--color-sunshine) !important;
+  color: var(--color-navy) !important;
+  font-weight: 800 !important;
+}
+
+.react-datepicker__day--today {
+  font-weight: 800 !important;
+  border: 1.5px solid var(--color-sunshine) !important;
+}
+
+.react-datepicker__day--disabled {
+  color: var(--color-slate-light) !important;
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+
+.react-datepicker__navigation {
+  top: 10px !important;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: var(--color-navy) !important;
+  border-width: 2px 2px 0 0 !important;
+}
+
+/* Autocomplete suggestions panel */
+.autocomplete-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  min-width: 320px;
+  background-color: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2xl);
+  border: 1px solid var(--color-border);
+  padding: 8px 0;
+  z-index: 50;
+  max-height: 320px;
+  overflow-y: auto;
+  animation: fadeIn 150ms ease-out;
+}
+
+.autocomplete-group-title {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-slate);
+  background-color: #F8FAFC;
+  border-top: 1px solid #F1F5F9;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.autocomplete-item-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid #F8FAFC;
+  transition: background-color var(--transition-fast);
+}
+
+.autocomplete-item-btn:hover {
+  background-color: var(--color-ivory);
+}
+
+.autocomplete-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.autocomplete-item-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.autocomplete-item-subtitle {
+  font-size: 0.75rem;
+  color: var(--color-slate);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.autocomplete-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* Guest counter popover */
+.guest-popover-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 320px;
+  background-color: var(--color-white);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl);
+  border: 1px solid var(--color-border);
+  padding: 16px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: fadeIn 150ms ease-out;
+}
+
+.guest-counter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.counter-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-navy);
+  transition: background-color var(--transition-fast);
+}
+
+.counter-btn:hover:not(:disabled) {
+  background-color: var(--color-ivory);
+}
+
+.counter-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   5. Hotel Card Component
+   -------------------------------------------------------------------------- */
+.hotel-card {
+  background-color: var(--color-white);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.hotel-card:hover {
+  border-color: var(--color-border-dark);
+  box-shadow: var(--shadow-md);
+}
+
+@media (min-width: 768px) {
+  .hotel-card {
+    flex-direction: row;
+  }
+}
+
+.hotel-card-thumb-container {
+  position: relative;
+  width: 100%;
+  height: 14rem;
+  flex-shrink: 0;
+  background-color: #F1F5F9;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .hotel-card-thumb-container {
+    width: 20rem;
+    height: auto;
+  }
+}
+
+.hotel-card-thumb-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 500ms ease;
+}
+
+.hotel-card:hover .hotel-card-thumb-image {
+  transform: scale(1.05);
+}
+
+.property-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  box-shadow: var(--shadow-xs);
+}
+
+.property-badge--hotel {
+  background-color: var(--color-indigo-bg);
+  color: var(--color-indigo-text);
+  border-color: var(--color-indigo-border);
+}
+
+.property-badge--resort {
+  background-color: var(--color-emerald-bg);
+  color: var(--color-emerald-text);
+  border-color: var(--color-emerald-border);
+}
+
+.property-badge--homestay {
+  background-color: var(--color-amber-bg);
+  color: var(--color-amber-text);
+  border-color: var(--color-amber-border);
+}
+
+.thumb-photos-pill {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: var(--color-white);
+  font-size: 0.75rem;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+  transition: background-color var(--transition-fast);
+}
+
+.thumb-photos-pill:hover {
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.hotel-card-content {
+  padding: 1.25rem;
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media (min-width: 768px) {
+  .hotel-card-content {
+    padding: 1.5rem;
+  }
+}
+
+.hotel-card-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  line-height: 1.4;
+  display: block;
+  margin-bottom: 0.5rem;
+  transition: color var(--transition-fast);
+}
+
+@media (min-width: 768px) {
+  .hotel-card-name {
+    font-size: 1.25rem;
+  }
+}
+
+.hotel-card-name:hover {
+  color: var(--color-sunshine);
+}
+
+.hotel-amenity-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.hotel-amenity-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  background-color: #F1F5F9;
+  color: var(--color-navy);
+}
+
+.hotel-card-bottom-row {
+  padding-top: 1rem;
+  border-top: 1px solid #F1F5F9;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.hotel-score-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hotel-score-value {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-navy);
+  color: var(--color-sunshine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow-xs);
+}
+
+.hotel-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  margin-top: 6px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-sunshine);
+  color: var(--color-navy);
+  font-weight: 700;
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-xs);
+  transition: all var(--transition-fast);
+}
+
+.hotel-view-btn:hover {
+  background-color: var(--color-sunshine-hover);
+  transform: translateY(-2px);
+}
+
+/* --------------------------------------------------------------------------
+   6. Room Type Card Component
+   -------------------------------------------------------------------------- */
+.room-type-card {
+  background-color: var(--color-white);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  transition: all var(--transition-normal);
+}
+
+.room-type-card:hover {
+  border-color: var(--color-border-dark);
+}
+
+.room-card-header {
+  padding: 14px 20px;
+  background-color: var(--color-ivory);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.room-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-navy);
+}
+
+@media (min-width: 640px) {
+  .room-card-title {
+    font-size: 1.125rem;
+  }
+}
+
+.room-availability-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-emerald-bg);
+  color: var(--color-emerald-text);
+  border: 1px solid var(--color-emerald-border);
+}
+
+.room-card-grid {
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .room-card-grid {
+    grid-template-columns: repeat(12, 1fr);
+  }
+  .room-col-thumb {
+    grid-column: span 4;
+  }
+  .room-col-specs {
+    grid-column: span 5;
+  }
+  .room-col-pricing {
+    grid-column: span 3;
+    border-top: none;
+    border-left: 1px solid var(--color-border);
+    padding-top: 0;
+    padding-left: 1.25rem;
+  }
+}
+
+.room-card-thumb-box {
+  position: relative;
+  height: 12rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-color: #F1F5F9;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+}
+
+.room-card-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 500ms ease;
+}
+
+.room-card-thumb-box:hover .room-card-thumb-img {
+  transform: scale(1.05);
+}
+
+.room-thumb-counter {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background-color: rgba(0, 0, 0, 0.75);
+  color: var(--color-white);
+  font-size: 0.75rem;
+  font-weight: 600;
+  backdrop-filter: blur(4px);
+  transition: background-color var(--transition-fast);
+}
+
+.room-specs-2col {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  font-size: 0.75rem;
+  color: var(--color-navy);
+}
+
+.room-policies-box {
+  padding: 12px;
+  background-color: #F8FAFC;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--color-slate);
+  border: 1px solid #F1F5F9;
+}
+
+.btn-select-room {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-sunshine);
+  color: var(--color-navy);
+  font-weight: 700;
+  font-size: 0.875rem;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+}
+
+.btn-select-room:hover {
+  background-color: var(--color-sunshine-hover);
+  transform: translateY(-2px);
+}
+
+/* --------------------------------------------------------------------------
+   7. Image Gallery Modal
+   -------------------------------------------------------------------------- */
+.gallery-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fadeIn 200ms ease-out;
+}
+
+@media (min-width: 640px) {
+  .gallery-modal-backdrop {
+    padding: 1.5rem;
+  }
+}
+
+.gallery-modal-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 64rem;
+  background-color: var(--color-navy-dark);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+  border: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+.gallery-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+  background-color: var(--color-navy-dark);
+  color: var(--color-white);
+}
+
+.gallery-modal-counter {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #CBD5E1;
+  padding: 4px 10px;
+  background-color: rgba(30, 41, 59, 0.8);
+  border-radius: var(--radius-full);
+  border: 1px solid #334155;
+}
+
+.gallery-modal-viewport {
+  position: relative;
+  flex: 1 1 0%;
+  min-height: 280px;
+  background-color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .gallery-modal-viewport {
+    min-height: 420px;
+  }
+}
+
+@media (min-width: 768px) {
+  .gallery-modal-viewport {
+    min-height: 480px;
+  }
+}
+
+.gallery-modal-hero-img {
+  max-height: 60vh;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  user-select: none;
+  transition: all 300ms ease;
+}
+
+@media (min-width: 640px) {
+  .gallery-modal-hero-img {
+    max-height: 65vh;
+  }
+}
+
+.gallery-modal-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background-color: rgba(0, 0, 0, 0.5);
+  color: var(--color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-lg);
+}
+
+.gallery-modal-nav-btn:hover {
+  background-color: var(--color-sunshine);
+  color: var(--color-navy);
+}
+
+.gallery-modal-nav--prev {
+  left: 12px;
+}
+
+.gallery-modal-nav--next {
+  right: 12px;
+}
+
+.gallery-modal-thumbnails {
+  padding: 12px;
+  background-color: var(--color-navy-dark);
+  border-top: 1px solid rgba(51, 65, 85, 0.6);
+  overflow-x: auto;
+}
+
+.gallery-thumb-btn {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 2px solid transparent;
+  opacity: 0.6;
+  transition: all var(--transition-fast);
+}
+
+@media (min-width: 640px) {
+  .gallery-thumb-btn {
+    width: 80px;
+    height: 56px;
+  }
+}
+
+.gallery-thumb-btn:hover {
+  opacity: 1;
+}
+
+.gallery-thumb-btn.active {
+  border-color: var(--color-sunshine);
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
+  opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   8. Toast System
+   -------------------------------------------------------------------------- */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+  animation: bounceIn 200ms ease-out;
+}
+
+.toast-box {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid;
+}
+
+.toast-box--success {
+  background-color: var(--color-navy);
+  color: var(--color-sunshine);
+  border-color: rgba(245, 184, 46, 0.4);
+}
+
+.toast-box--error {
+  background-color: #881337;
+  color: var(--color-white);
+  border-color: #BE123C;
+}
+
+.toast-box--info {
+  background-color: var(--color-navy);
+  color: var(--color-white);
+  border-color: #334155;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes bounceIn {
+  0% { transform: translateY(12px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
