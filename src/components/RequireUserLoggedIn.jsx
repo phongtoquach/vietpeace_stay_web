@@ -1,5 +1,5 @@
-import { useContext, useEffect, useState } from "react";
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { useContext, useEffect, useState, useRef } from "react";
+import { Navigate, Outlet } from "react-router-dom";
 
 import AuthContext from "../context/AuthContext";
 
@@ -7,10 +7,7 @@ function RequireUserLoggedIn() {
 
     console.log("[RequireUserLoggedIn] Vừa vào hàm component RequireUserLoggedIn !");
 
-    const { checkAuthen } = useContext(AuthContext);
-
-    const { pathname } = useLocation();
-    console.log("[RequireUserLoggedIn] pathname (URL web) hien tai : " + pathname);
+    const { currentLoggedInUser, isCheckingAuthen, authError, currentUrl, isRouteUrlChanged } = useContext(AuthContext);
 
     useEffect(() => {
         console.log("[RequireUserLoggedIn] đang chạy useEffect() của component RequireUserLoggedIn !");
@@ -21,47 +18,14 @@ function RequireUserLoggedIn() {
         };
     });
 
-    const [authenStatus, setAuthenStatus] = useState("checking");
+    // khai báo biến useRef refNeedReCheckAuthen
+    //const refNeedReCheckAuthen = useRef("no");
 
-    useEffect(() => {
-        console.log("[RequireUserLoggedIn] đang chạy useEffect() gọi hàm AuthProvider.checkAuthen() !");
-
-        let isActive = true;
-        setAuthenStatus("checking");
-
-        checkAuthen().then((isValid) => {
-                if (!isActive) {
-                    return;
-                }
-
-                if (isValid) {
-                    setAuthenStatus("authenticated");
-                } else {
-                    console.log("[RequireUserLoggedIn - checkAuthen] isValid = false ! Dat lich set value cua bien useState authenStatus thanh : unauthenticated");
-                    setAuthenStatus("unauthenticated");
-                }
-            })
-            .catch((error) => {
-                console.error("Authentication check failed:",error);
-
-                if (isActive) {
-                    setAuthenStatus("error");
-                }
-            });
-
-        // hàm cleanup
-        return () => {
-            console.log("[RequireUserLoggedIn] đang chạy hàm cleanup của useEffect() gọi hàm AuthProvider.checkAuthen() !");
-            isActive = false;
-        };
-
-    }, [pathname, checkAuthen]);
-    // [pathname, checkAuthen]
-
-
-    // Đang kiểm tra JWT
-    if (authenStatus === "checking") {
-        console.log("[RequireUserLoggedIn] Value hien tai cua bien useState authenStatus la checking ! Return 1 JSX Element tạm !");
+    console.log("[RequireUserLoggedIn] useState AuthProvider.isCheckingAuthen : ", isCheckingAuthen);
+    console.log("[RequireUserLoggedIn] Value cua bien isRouteUrlChanged : ", isRouteUrlChanged);
+    
+    if (isCheckingAuthen === true || isRouteUrlChanged === true) {
+        console.log("[RequireUserLoggedIn] useState AuthProvider.isCheckingAuthen = true HOẶC isRouteUrlChanged = true ! Return JSX Element thông báo đang check đăng nhập !");
         return (
             <div>
                 <p>Đang kiểm tra đăng nhập...</p>
@@ -69,22 +33,9 @@ function RequireUserLoggedIn() {
         );
     }
 
-    // JWT không hợp lệ / hết hạn / không tồn tại
-    if (authenStatus === "unauthenticated") {
-        console.log("[RequireUserLoggedIn] Value hien tai cua bien useState authenStatus la unauthenticated ! Chuyen qua trang login !");
-        return (
-            <Navigate to="/login" replace state={{ from: pathname }}/>
-        );
-        // return (
-        //     <div>
-        //         <p>Bạn chưa đăng nhập ! Vui lòng đăng nhập nhé !</p>
-        //     </div>
-        // )
-    }
-
-    // Không thể kết nối server
-    if (authenStatus === "error") {
-        console.log("[RequireUserLoggedIn] Value hien tai cua bien useState authenStatus la error ! Return 1 JSX Element thông báo vui lòng check lại kết nối !");
+    // Nếu authError !== null : có lỗi về network
+    if (authError) {
+        console.log("[RequireUserLoggedIn] useState AuthProvider.authError khac NULL ! Return JSX Element thông báo vui lòng check lại kết nối !");
         return (
             <div>
                 <h2>Không thể xác minh đăng nhập</h2>
@@ -95,8 +46,26 @@ function RequireUserLoggedIn() {
         );
     }
 
-    // JWT hợp lệ
-    console.log("[RequireUserLoggedIn] Value hien tai cua bien useState authenStatus la : " + authenStatus + " ! Token còn hiệu lực ! Tiếp tục đi đến route con bên trong RequireUserLoggedIn !");
+    // Session dang nhap cua user khong ton tai
+    if (!currentLoggedInUser) {
+        console.log("[RequireUserLoggedIn] useState AuthProvider.currentLoggedInUser === NULL ! Session đăng nhập của user không tồn tại ! Chuyển qua trang login !");
+        return (
+            <Navigate to="/login" replace state={{ from: currentUrl }}/>
+        );
+        // return (
+        //     <div>
+        //         <p>Bạn chưa đăng nhập ! Vui lòng đăng nhập nhé !</p>
+        //     </div>
+        // )
+    }
+
+
+    // Session còn tồn tại. Tức là còn đang trong phiên login
+    console.log("[RequireUserLoggedIn] useState AuthProvider.currentLoggedInUser : ", currentLoggedInUser);
+    console.log("[RequireUserLoggedIn] Session còn tồn tại ! Tiếp tục đi đến route con bên trong RequireUserLoggedIn !");
+    
+    //refNeedReCheckAuthen.current = "yes";
+
     return <Outlet />;
 }
 

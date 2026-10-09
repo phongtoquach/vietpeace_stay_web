@@ -1,9 +1,11 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { useLocation } from "react-router-dom";
+
 import { getStorage, setStorage, removeStorage } from '../utils/bookingUtils.js';
 
 const AuthContext = createContext();
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = "http://localhost:3002/api/web";
 
 const STORAGE_KEY = 'vietpeacestay_current_user';
 
@@ -11,58 +13,110 @@ export function AuthProvider({ children }) {
 
     console.log("[AuthProvider] Vừa vào hàm provider : AuthProvider !");
 
+    const { pathname, search } = useLocation();
+    const currentUrl = pathname + search;
+    console.log("[AuthProvider] currentUrl la : " + currentUrl);
+
     const [currentLoggedInUser, setCurrentLoggedInUser] = useState(null);
+
+    // Phân biệt:
+    // true  = đang gọi API kiểm tra authentication
+    // false = đã kiểm tra xong
+    const [isCheckingAuthen, setIsCheckingAuthen] = useState(true);
+
+    // Lưu lỗi khi không thể kiểm tra authentication
+    const [authError, setAuthError] = useState(null);
+
+    const [authenStatus, setAuthenStatus] = useState("checking");
+
+    const refRouteUrl = useRef(currentUrl);
+    console.log("[AuthProvider] Value hiện tại của biến refRouteUrl : " + refRouteUrl.current);
+
+    const isRouteUrlChanged = (currentUrl !== refRouteUrl.current) ? true : false;
+    console.log("[AuthProvider] Value cua bien isRouteUrlChanged : ", isRouteUrlChanged);
+
+    if (isRouteUrlChanged) {
+        refRouteUrl.current = currentUrl;
+    }
 
     // Hàm kiểm tra token JWT hiện tại với Backend
     const checkAuthen = useCallback(async () => {
-        const token = localStorage.getItem("accessToken");
+        console.log("[AuthProvider - checkAuthen] setIsCheckingAuthen(true) !");
+        setIsCheckingAuthen(true);
+        console.log("[AuthProvider - checkAuthen] setAuthError(null) !");
+        setAuthError(null);
 
-        console.log("[AuthProvider - checkAuthen] localStorage item accessToken : " + token);
-
-        // Nếu Không có token trong localStorage : return false
-        if (!token) {
-            console.log("[AuthProvider - checkAuthen] localStorage item accessToken khong ton tai ! Dat lich set value cua bien useState currentLoggedInUser thanh null va return false !");
-            setCurrentLoggedInUser(null);
-            return false;
-        }
+        //setAuthenStatus("checking");
 
         try {
-            // Nếu có token trong localStorage : gọi API truyền kèm token để check trên server xem token còn hiệu lực hay ko
-            const response = await fetch(`${API_URL}/auth/getLoggedInUser`, {
+            const api_response = await fetch(`${API_URL}/auth/loggedin-user`, {
                 method: "GET",
                 headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                    "Content-Type": "application/json"
+                },
+                credentials: "include"
             });
+            console.log("[AuthProvider - checkAuthen] Response cua API /auth/loggedin-user : ", api_response);
 
-            // Token JWT không hợp lệ hoặc hết thời hạn hiệu lực -> return false
-            if (response.status === 401) {
-                localStorage.removeItem("accessToken");
-                setCurrentLoggedInUser(null);
+            if (!api_response.ok) {
+                // status code 401 xác nhận session đăng nhập của user không tồn tại
+                if (api_response.status === 401) {
+                    console.log("[AuthProvider - checkAuthen] status code cua response cua API /auth/loggedin-user la 401 ! setCurrentLoggedInUser(null) va return false !");
+                    setCurrentLoggedInUser(null);
+                    return false;
+                }
 
-                return false;
+                // Các lỗi HTTP khác, ví dụ 500
+                // không đồng nghĩa user đã logout
+                throw new Error( `Authentication API failed: ${response.status}` );
             }
-
-            // Các lỗi khác của server
-            if (!response.ok) {
-                throw new Error("Unable to verify authentication");
-            }
-
-            const data = await response.json();
-
-            // Backend (Server) xác nhận Token JWT này hợp lệ và còn hiệu lực
-            setCurrentLoggedInUser(data.user);
+            
+            const response_data = await api_response.json();
+            console.log("[AuthProvider - checkAuthen] API response OK và Login Session còn tồn tại ! Data của response_data : ", response_data);
+            console.log("[AuthProvider - checkAuthen] setCurrentLoggedInUser(response_data.data.customerInfo) va return true !");
+            setCurrentLoggedInUser(response_data.data.customerInfo);
 
             return true;
-
-        } catch (error) {
-            console.error("checkAuthen error:", error);
-
-            // Không nên tự logout ở đây.
-            // Vì lỗi network/server không có nghĩa JWT hết hạn.
-            throw error;
         }
+        catch (error) {
+            console.error("[AuthProvider - checkAuthen - catch] checkAuthen() failed:", error);
+
+            // Network error / server error:
+            // không nên tự động kết luận user đã logout.
+            setAuthError(error);
+
+            throw error;
+        } finally {
+            console.log("[AuthProvider - checkAuthen - finally] setIsCheckingAuthen(false) !");
+            setIsCheckingAuthen(false);
+        }
+
     }, []);
+
+
+    // useEffect() for test
+    useEffect(() => {
+        console.log("[AuthProvider] đang chạy useEffect() của AuthProvider !");
+            
+        // hàm cleanup
+        return () => {
+            console.log("[AuthProvider] đang chạy hàm cleanup của useEffect() !");
+        };
+    });
+
+
+    // Gọi checkAuthen() trong useEffect()
+    useEffect(() => {
+        console.log("[AuthProvider] đang chạy useEffect() gọi hàm checkAuthen() !");
+
+        checkAuthen();
+
+        // hàm cleanup
+        return () => {
+            console.log("[AuthProvider] đang chạy hàm cleanup của useEffect() gọi hàm checkAuthen() !");
+        };
+
+    }, [currentUrl, checkAuthen]);
 
 
     // Hàm Login
@@ -127,20 +181,18 @@ export function AuthProvider({ children }) {
     };
 
 
-    // useEffect() for test
-    useEffect(() => {
-        console.log("[AuthProvider] đang chạy useEffect() của AuthProvider !");
-            
-        // hàm cleanup
-        return () => {
-            console.log("[AuthProvider] đang chạy hàm cleanup của useEffect() !");
-        };
-    });
-
-    const isAuthenticated = currentLoggedInUser ? true : false;
+    
 
     return (
-        <AuthContext.Provider value={{ currentLoggedInUser, isAuthenticated, checkAuthen, currentUser, showToast }}>
+        <AuthContext.Provider value={{
+            currentLoggedInUser,
+            isCheckingAuthen,
+            authError,
+            currentUrl,
+            isRouteUrlChanged,
+            currentUser,    // biến cũ
+            showToast       // biến cũ
+        }}>
             {children}
             {toast && (
                 <div className="toast-container">
