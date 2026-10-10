@@ -9,8 +9,8 @@ export default function LoginPage() {
     const [searchParams] = useSearchParams();
     //const { login } = useAuth();
 
-    const [email, setEmail] = useState('nguyenvana@gmail.com');
-    const [password, setPassword] = useState('VinaStay2026@');
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
 
     const returnUrl = searchParams.get('returnUrl') || '/';
 
@@ -51,18 +51,13 @@ export default function LoginPage() {
         // }
     };
 
-    const handleDemoFill = () => {
-        setEmail('nguyenvana@gmail.com');
-        setPassword('VinaStay2026@');
-    };
-
     return (
         <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)', padding: '3.5rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div className="auth-card">
                 
                 <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                 <Link to="/" className="brand-text" style={{ display: 'inline-block', marginBottom: '12px' }}>
-                    VinaStay <span>Group</span>
+                    VietPeace <span>Stay</span>
                 </Link>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-navy)' }}>Đăng Nhập Khách Hàng</h1>
                 <p style={{ fontSize: '0.875rem', color: 'var(--color-slate)', marginTop: '4px' }}>Đăng nhập để đặt phòng và hưởng ưu đãi trực tiếp.</p>
@@ -72,11 +67,10 @@ export default function LoginPage() {
                     <div>
                         <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)', display: 'block', marginBottom: '4px' }}>Email</label>
                         <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="auth-input"
-                        required
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="auth-input"
                         />
                     </div>
 
@@ -86,11 +80,10 @@ export default function LoginPage() {
                         <a href="#" style={{ fontSize: '12px', color: 'var(--color-sunshine)', fontWeight: 600, textDecoration: 'underline' }}>Quên mật khẩu?</a>
                         </div>
                         <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="auth-input"
-                        required
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="auth-input"
                         />
                     </div>
 
@@ -105,10 +98,10 @@ export default function LoginPage() {
                 </form>
 
                 <div style={{ paddingTop: '1.5rem', borderTop: '1px solid var(--color-border)', marginTop: '1.5rem', textAlign: 'center', fontSize: '12px', color: 'var(--color-slate)' }}>
-                Chưa có tài khoản?{' '}
-                <Link to="/register" style={{ color: 'var(--color-navy)', fontWeight: 700, textDecoration: 'underline' }}>
-                    Đăng ký thành viên
-                </Link>
+                    Chưa có tài khoản?{' '}
+                    <Link to="/register" style={{ color: 'var(--color-navy)', fontWeight: 700, textDecoration: 'underline' }}>
+                        Đăng ký thành viên
+                    </Link>
                 </div>
 
             </div>

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, useRef } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
 
 import AuthContext from "../context/AuthContext";
@@ -18,14 +18,11 @@ function RequireUserLoggedIn() {
         };
     });
 
-    // khai báo biến useRef refNeedReCheckAuthen
-    //const refNeedReCheckAuthen = useRef("no");
-
     console.log("[RequireUserLoggedIn] useState AuthProvider.isCheckingAuthen : ", isCheckingAuthen);
-    console.log("[RequireUserLoggedIn] Value cua bien isRouteUrlChanged : ", isRouteUrlChanged);
+    console.log("[RequireUserLoggedIn] biến AuthProvider.isRouteUrlChanged : ", isRouteUrlChanged);
     
     if (isCheckingAuthen === true || isRouteUrlChanged === true) {
-        console.log("[RequireUserLoggedIn] useState AuthProvider.isCheckingAuthen = true HOẶC isRouteUrlChanged = true ! Return JSX Element thông báo đang check đăng nhập !");
+        console.log("[RequireUserLoggedIn] useState AuthProvider.isCheckingAuthen = true HOẶC AuthProvider.isRouteUrlChanged = true ! Return JSX Element thông báo đang check đăng nhập !");
         return (
             <div>
                 <p>Đang kiểm tra đăng nhập...</p>
@@ -48,7 +45,7 @@ function RequireUserLoggedIn() {
 
     // Session dang nhap cua user khong ton tai
     if (!currentLoggedInUser) {
-        console.log("[RequireUserLoggedIn] useState AuthProvider.currentLoggedInUser === NULL ! Session đăng nhập của user không tồn tại ! Chuyển qua trang login !");
+        console.log("[RequireUserLoggedIn] useState AuthProvider.currentLoggedInUser = NULL ! Session đăng nhập của user không tồn tại ! Chuyển qua trang login !");
         return (
             <Navigate to="/login" replace state={{ from: currentUrl }}/>
         );
@@ -61,10 +58,8 @@ function RequireUserLoggedIn() {
 
 
     // Session còn tồn tại. Tức là còn đang trong phiên login
-    console.log("[RequireUserLoggedIn] useState AuthProvider.currentLoggedInUser : ", currentLoggedInUser);
+    console.log("[RequireUserLoggedIn] useState AuthProvider.currentLoggedInUser khác NULL : ", currentLoggedInUser);
     console.log("[RequireUserLoggedIn] Session còn tồn tại ! Tiếp tục đi đến route con bên trong RequireUserLoggedIn !");
-    
-    //refNeedReCheckAuthen.current = "yes";
 
     return <Outlet />;
 }

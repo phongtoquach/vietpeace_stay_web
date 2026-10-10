@@ -27,8 +27,6 @@ export function AuthProvider({ children }) {
     // Lưu lỗi khi không thể kiểm tra authentication
     const [authError, setAuthError] = useState(null);
 
-    const [authenStatus, setAuthenStatus] = useState("checking");
-
     const refRouteUrl = useRef(currentUrl);
     console.log("[AuthProvider] Value hiện tại của biến refRouteUrl : " + refRouteUrl.current);
 
@@ -45,8 +43,6 @@ export function AuthProvider({ children }) {
         setIsCheckingAuthen(true);
         console.log("[AuthProvider - checkAuthen] setAuthError(null) !");
         setAuthError(null);
-
-        //setAuthenStatus("checking");
 
         try {
             const api_response = await fetch(`${API_URL}/auth/loggedin-user`, {
@@ -152,11 +148,18 @@ export function AuthProvider({ children }) {
         return data.user;
     }, []);
 
-    // Hàm Logout
-    const logout = useCallback(() => {
-        localStorage.removeItem("accessToken");
+
+    // Hàm logout customer
+    const logout = useCallback(() => {    
         setCurrentLoggedInUser(null);
     }, []);
+
+
+    // CODE GOC - Hàm Logout
+    // const logout = useCallback(() => {
+    //     localStorage.removeItem("accessToken");
+    //     setCurrentLoggedInUser(null);
+    // }, []);
 
 
     /* CODE GOC */
