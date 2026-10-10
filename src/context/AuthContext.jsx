@@ -28,12 +28,13 @@ export function AuthProvider({ children }) {
     const [authError, setAuthError] = useState(null);
 
     const refRouteUrl = useRef(currentUrl);
-    console.log("[AuthProvider] Value hiện tại của biến refRouteUrl : " + refRouteUrl.current);
+    console.log("[AuthProvider] Value hiện tại của biến useRef refRouteUrl : " + refRouteUrl.current);
 
     const isRouteUrlChanged = (currentUrl !== refRouteUrl.current) ? true : false;
     console.log("[AuthProvider] Value cua bien isRouteUrlChanged : ", isRouteUrlChanged);
 
     if (isRouteUrlChanged) {
+        console.log("[AuthProvider] Update value hiện tại của biến useRef refRouteUrl thành : " + currentUrl);
         refRouteUrl.current = currentUrl;
     }
 
