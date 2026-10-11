@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { getStorage, setStorage, removeStorage } from '../utils/bookingUtils.js';
 
@@ -14,8 +14,12 @@ export function AuthProvider({ children }) {
     console.log("[AuthProvider] Vừa vào hàm provider : AuthProvider !");
 
     const { pathname, search } = useLocation();
+    //console.log("[AuthProvider] pathname la : " + pathname);
+    //console.log("[AuthProvider] cac URL param (search) la : " + search);
     const currentUrl = pathname + search;
     console.log("[AuthProvider] currentUrl la : " + currentUrl);
+
+    const navigate = useNavigate();
 
     const [currentLoggedInUser, setCurrentLoggedInUser] = useState(null);
 
@@ -65,7 +69,7 @@ export function AuthProvider({ children }) {
 
                 // Các lỗi HTTP khác, ví dụ 500
                 // không đồng nghĩa user đã logout
-                throw new Error( `Authentication API failed: ${response.status}` );
+                throw new Error( `Authentication API failed: ${api_response.status}` );
             }
             
             const response_data = await api_response.json();
@@ -151,16 +155,49 @@ export function AuthProvider({ children }) {
 
 
     // Hàm logout customer
-    const logout = useCallback(() => {    
-        setCurrentLoggedInUser(null);
+    const logout = useCallback(async (current_url) => { 
+        console.log("[AuthProvider - logout] Đang chạy hàm logout() ! current_url : " + current_url);
+        
+        try {
+            const api_response = await fetch(`${API_URL}/auth/logout`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                credentials: "include"
+            });
+            console.log("[AuthProvider - logout] Response cua API /auth/logout : ", api_response);
+
+            if (!api_response.ok) {
+                // status code 401 xác nhận session đăng nhập của user không tồn tại
+                if (api_response.status === 401) {
+                    console.log("[AuthProvider - logout] status code cua response cua API /auth/logout la 401 ! chuyển qua route trang Home !");
+                    navigate("/");
+                    return false;
+                }
+                else {
+                    throw new Error(`API /auth/logout failed: ${api_response.status}`);
+                }
+            }
+            
+            const response_data = await api_response.json();
+            console.log("[AuthProvider - logout] Logout thanh cong ! Data của response_data : ", response_data);
+            
+            console.log("[AuthProvider - logout] current_url : " + current_url);
+            if (current_url !== "/") {
+                console.log("[AuthProvider - logout] Dang o route khac trang Home ! Chuyen qua route trang Home !");
+                navigate("/");
+            }
+            else {
+                console.log("[AuthProvider - logout] Dang o ngay route trang Home ! setCurrentLoggedInUser(null) !");
+                setCurrentLoggedInUser(null);
+            }
+        }
+        catch (error) {
+            console.error("[AuthProvider - logout - catch] logout() failed:", error);
+            throw error;
+        }
     }, []);
-
-
-    // CODE GOC - Hàm Logout
-    // const logout = useCallback(() => {
-    //     localStorage.removeItem("accessToken");
-    //     setCurrentLoggedInUser(null);
-    // }, []);
 
 
     /* CODE GOC */
@@ -194,6 +231,8 @@ export function AuthProvider({ children }) {
             authError,
             currentUrl,
             isRouteUrlChanged,
+            currentPathName: pathname,
+            logout,
             currentUser,    // biến cũ
             showToast       // biến cũ
         }}>

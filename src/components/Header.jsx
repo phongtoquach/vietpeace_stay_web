@@ -1,16 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+
+import AuthContext from "../context/AuthContext";
+
+
 import { User, LogOut, Calendar, Menu, X, ChevronDown } from 'lucide-react';
 
 export default function Header() {
-    const { currentUser, logout } = useAuth();
-    const location = useLocation();
-    const navigate = useNavigate();
+    console.log("[Header] Vừa vào hàm component Header !");
+
+    const { currentPathName, currentLoggedInUser, isCheckingAuthen, logout } = useContext(AuthContext);
+
+    //const location = useLocation();
+    //const navigate = useNavigate();
 
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
+
+    console.log("[Header] useState AuthProvider.currentLoggedInUser : ", currentLoggedInUser);
+    console.log("[Header] Bien AuthProvider.currentPathName : ", currentPathName);
+
+    // useEffect() for test
+    useEffect(() => {
+        console.log("[Header] đang chạy useEffect() của Header !");
+            
+        // hàm cleanup
+        return () => {
+            console.log("[Header] đang chạy hàm cleanup của useEffect() !");
+        };
+    });
 
     // Close dropdown on outside click
     useEffect(() => {
@@ -29,7 +48,7 @@ export default function Header() {
     useEffect(() => {
         setMobileMenuOpen(false);
         setDropdownOpen(false);
-    }, [location.pathname]);
+    }, [currentPathName]);
 
     const navLinks = [
         { label: 'Trang chủ', path: '/' },
@@ -71,7 +90,7 @@ export default function Header() {
 
                 {/* Zone 3: Actions & Account (Desktop) */}
                 <div className="header-actions">
-                    {currentUser ? (
+                    {currentLoggedInUser ? (
                         <div className="user-menu-wrapper" ref={dropdownRef}>
                             <button
                                 type="button"
@@ -79,10 +98,10 @@ export default function Header() {
                                 className="user-menu-btn"
                             >
                                 <div className="user-avatar">
-                                    {currentUser.fullName ? currentUser.fullName.split(' ').slice(-1)[0][0] : 'U'}
+                                    {currentLoggedInUser.fullname ? currentLoggedInUser.fullname.split(' ').slice(-1)[0][0] : 'U'}
                                 </div>
                                 <span className="user-name">
-                                    {currentUser.fullName}
+                                    {currentLoggedInUser.fullname}
                                 </span>
                                 <ChevronDown style={{ width: '16px', height: '16px', color: 'var(--color-slate)', transition: 'transform 150ms ease', transform: dropdownOpen ? 'rotate(180deg)' : 'none' }} />
                             </button>
@@ -92,7 +111,7 @@ export default function Header() {
                                 <div className="user-dropdown-menu">
                                     <div className="dropdown-header">
                                         <p className="dropdown-header-subtitle">Tài khoản khách hàng</p>
-                                        <p className="dropdown-header-email">{currentUser.email}</p>
+                                        <p className="dropdown-header-email">{currentLoggedInUser.email}</p>
                                     </div>
                                 <Link
                                     to="/profile"
@@ -112,8 +131,8 @@ export default function Header() {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            logout();
-                                            navigate('/');
+                                            logout(currentPathName);
+                                            //navigate('/');
                                         }}
                                         className="dropdown-logout-btn"
                                     >
@@ -170,10 +189,10 @@ export default function Header() {
                     </div>
 
                     <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)' }}>
-                        {currentUser ? (
+                        {currentLoggedInUser ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <div style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--color-slate)' }}>
-                                    Đã đăng nhập: <strong style={{ color: 'var(--color-navy)' }}>{currentUser.fullName}</strong>
+                                    Đã đăng nhập: <strong style={{ color: 'var(--color-navy)' }}>{currentLoggedInUser.fullname}</strong>
                                 </div>
                                 <Link
                                 to="/profile"
@@ -194,7 +213,7 @@ export default function Header() {
                                 <button type="button"
                                 onClick={() => {
                                     logout();
-                                    navigate('/');
+                                    //navigate('/');
                                 }}
                                 className="mobile-nav-link"
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#E11D48', textAlign: 'left', width: '100%' }}
