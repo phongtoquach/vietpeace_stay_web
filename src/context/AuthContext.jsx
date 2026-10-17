@@ -42,6 +42,10 @@ export function AuthProvider({ children }) {
         refRouteUrl.current = currentUrl;
     }
 
+    function test1() {
+        console.log("[AuthProvider] await - Đang chạy test1() !");
+    }
+
     // Hàm kiểm tra token JWT hiện tại với Backend
     const checkAuthen = useCallback(async () => {
         console.log("[AuthProvider - checkAuthen] setIsCheckingAuthen(true) !");
@@ -49,6 +53,10 @@ export function AuthProvider({ children }) {
         console.log("[AuthProvider - checkAuthen] setAuthError(null) !");
         setAuthError(null);
 
+        //await test1();
+        //console.log("[AuthProvider - checkAuthen] Chạy các code sau await test1() !");
+
+        console.log("[AuthProvider - checkAuthen] đây là trước dòng await fetch() !");
         try {
             const api_response = await fetch(`${API_URL}/auth/loggedin-user`, {
                 method: "GET",
@@ -112,6 +120,8 @@ export function AuthProvider({ children }) {
 
         checkAuthen();
 
+        console.log("[AuthProvider] Chạy các code đồng bộ bên ngoài, phía sau dòng gọi hàm checkAuthen() !");
+
         // hàm cleanup
         return () => {
             console.log("[AuthProvider] đang chạy hàm cleanup của useEffect() gọi hàm checkAuthen() !");
@@ -121,37 +131,37 @@ export function AuthProvider({ children }) {
 
 
     // Hàm Login
-    const login = useCallback(async (email, password) => {
-        const response = await fetch(`${API_URL}/auth/login`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                email,
-                password
-            })
-        });
+    // const login = useCallback(async (email, password) => {
+    //     const response = await fetch(`${API_URL}/auth/login`, {
+    //         method: "POST",
+    //         headers: {
+    //             "Content-Type": "application/json"
+    //         },
+    //         body: JSON.stringify({
+    //             email,
+    //             password
+    //         })
+    //     });
 
-        const data = await response.json();
+    //     const data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(
-                data.message || "Login failed"
-            );
-        }
+    //     if (!response.ok) {
+    //         throw new Error(
+    //             data.message || "Login failed"
+    //         );
+    //     }
 
-        // Lưu JWT
-        localStorage.setItem(
-            "accessToken",
-            data.accessToken
-        );
+    //     // Lưu JWT
+    //     localStorage.setItem(
+    //         "accessToken",
+    //         data.accessToken
+    //     );
 
-        // Lưu user vào React state
-        setCurrentLoggedInUser(data.user);
+    //     // Lưu user vào React state
+    //     setCurrentLoggedInUser(data.user);
 
-        return data.user;
-    }, []);
+    //     return data.user;
+    // }, []);
 
 
     // Hàm logout customer
