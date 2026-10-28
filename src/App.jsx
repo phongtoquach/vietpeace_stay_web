@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
+import { AppProvider } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
 import { BookingProvider } from './context/BookingContext.jsx';
 
@@ -33,43 +34,45 @@ import Footer from './components/Footer.jsx';
 function App() {
     return (
         <>
-            <AuthProvider>
-                <BookingProvider>
-                    <Header />
+            <AppProvider>
+                <AuthProvider>
+                    <BookingProvider>
+                        <Header />
 
-                    <div className="app-container">
-                        <div className="app-main">
-                            <Routes>
-                                {/* PUBLIC ROUTES */}
-                                <Route path="/" element={<HomePage />} />
-                                <Route path="/login" element={<LoginPage />} />
-                                <Route path="/register" element={<RegisterPage />} />
+                        <div className="app-container">
+                            <div className="app-main">
+                                <Routes>
+                                    {/* PUBLIC ROUTES */}
+                                    <Route path="/" element={<HomePage />} />
+                                    <Route path="/login" element={<LoginPage />} />
+                                    <Route path="/register" element={<RegisterPage />} />
 
-                                <Route path="/search" element={<SearchPage />} />
-                                <Route path="/hotel-detail" element={<HotelDetailPage />} />
-                        
-                                <Route path="/about" element={<AboutPage />} />
-                                <Route path="/contact" element={<ContactPage />} />
-                                <Route path="/terms" element={<TermsPage />} />
-                                <Route path="/privacy" element={<PrivacyPage />} />
-                                
+                                    <Route path="/search" element={<SearchPage />} />
+                                    <Route path="/hotel-detail" element={<HotelDetailPage />} />
+                            
+                                    <Route path="/about" element={<AboutPage />} />
+                                    <Route path="/contact" element={<ContactPage />} />
+                                    <Route path="/terms" element={<TermsPage />} />
+                                    <Route path="/privacy" element={<PrivacyPage />} />
+                                    
 
-                                {/* ROUTES REQUIRED LOGGED-IN USER */}
-                                <Route element={<RequireUserLoggedIn />}>
-                                    <Route path="/profile" element={<ProfilePage />} />
-                                    <Route path="/bookings" element={<MyBookingsPage />} />
-                                    <Route path="/booking-detail" element={<BookingDetailPage />} />
+                                    {/* ROUTES REQUIRED LOGGED-IN USER */}
+                                    <Route element={<RequireUserLoggedIn />}>
+                                        <Route path="/profile" element={<ProfilePage />} />
+                                        <Route path="/bookings" element={<MyBookingsPage />} />
+                                        <Route path="/booking-detail" element={<BookingDetailPage />} />
 
-                                    <Route path="/checkout" element={<CheckoutPage />} />
-                                    <Route path="/booking-success" element={<BookingSuccessPage />} />
-                                </Route>
-                            </Routes>
+                                        <Route path="/checkout" element={<CheckoutPage />} />
+                                        <Route path="/booking-success" element={<BookingSuccessPage />} />
+                                    </Route>
+                                </Routes>
+                            </div>
                         </div>
-                    </div>
 
-                    <Footer />
-                </BookingProvider>
-            </AuthProvider>
+                        <Footer />
+                    </BookingProvider>
+                </AuthProvider>
+            </AppProvider>
         </>
     )
 }

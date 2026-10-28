@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import HeroSlider from '../components/HeroSlider.jsx';
-import HotelSearchForm from '../components/HotelSearchForm.jsx';
+
+//import HotelSearchForm from '../components/HotelSearchForm.jsx';
+import AccommodationSearchForm from '../components/AccommodationSearchForm';
+
 import HotelCard from '../components/HotelCard.jsx';
 import ImageGalleryModal from '../components/ImageGalleryModal.jsx';
 import { HOTELS, POPULAR_DESTINATIONS } from '../data/hotelsData.js';
@@ -39,7 +42,7 @@ export default function HomePage() {
 
         {/* 2. Overlapping Reusable Hotel Search Box */}
         <div className="home-search-overlap">
-          <HotelSearchForm />
+          <AccommodationSearchForm />
         </div>
       </section>
 
