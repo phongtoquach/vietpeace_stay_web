@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 const AppContext = createContext();
 
-const API_BASE_URL = "http://localhost:3002/api/web";
+//const API_BASE_URL = "http://localhost:3002/api/web";
 
 export function AppProvider({ children }) {
 
@@ -16,6 +16,9 @@ export function AppProvider({ children }) {
     const [loadingDestinations, setLoadingDestinations] = useState(true);
 
     const [destinationsError, setDestinationsError] = useState("");
+
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    //console.log("[AppProvider] Value của biến apiBaseUrl (env VITE_API_BASE_URL) : " + apiBaseUrl);
 
     // useEffect() for test
     useEffect(() => {
@@ -31,15 +34,15 @@ export function AppProvider({ children }) {
         async function loadActiveLocationsAndAccommodations() {
             try {
                 const response = await fetch(
-                    `${API_BASE_URL}/lookup/locations-and-accommodations`
+                    `${apiBaseUrl}/lookup/locations-and-accommodations`
                 );
 
-                const result = await response.json();
-
-                if (!response.ok || !result.success) {
-                    setDestinationsError(result.message || "Không thể tải danh sách điểm đến và chỗ nghỉ.");
+                if (!response.ok) {
+                    setDestinationsError("Không thể tải danh sách điểm đến và chỗ nghỉ.");
                     return;
                 }
+
+                const result = await response.json();
 
                 setActiveLocations(result.data.locations);
                 setActiveAccommodations(result.data.accommodations);

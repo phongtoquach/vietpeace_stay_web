@@ -5,13 +5,16 @@ import { getStorage, setStorage, removeStorage } from '../utils/bookingUtils.js'
 
 const AuthContext = createContext();
 
-const API_URL = "http://localhost:3002/api/web";
+//const API_URL = "http://localhost:3002/api/web";
 
 const STORAGE_KEY = 'vietpeacestay_current_user';
 
 export function AuthProvider({ children }) {
 
     console.log("[AuthProvider] Vừa vào hàm provider : AuthProvider !");
+
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    //console.log("[AuthProvider] Value của biến apiBaseUrl (env VITE_API_BASE_URL) : " + apiBaseUrl);
 
     const { pathname, search } = useLocation();
     //console.log("[AuthProvider] pathname la : " + pathname);
@@ -58,7 +61,7 @@ export function AuthProvider({ children }) {
 
         console.log("[AuthProvider - checkAuthen] đây là trước dòng await fetch() !");
         try {
-            const api_response = await fetch(`${API_URL}/auth/loggedin-user`, {
+            const api_response = await fetch(`${apiBaseUrl}/auth/loggedin-user`, {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json"
@@ -132,7 +135,7 @@ export function AuthProvider({ children }) {
 
     // Hàm Login
     // const login = useCallback(async (email, password) => {
-    //     const response = await fetch(`${API_URL}/auth/login`, {
+    //     const response = await fetch(`${apiBaseUrl}/auth/login`, {
     //         method: "POST",
     //         headers: {
     //             "Content-Type": "application/json"
@@ -169,7 +172,7 @@ export function AuthProvider({ children }) {
         console.log("[AuthProvider - logout] Đang chạy hàm logout() ! current_url : " + current_url);
         
         try {
-            const api_response = await fetch(`${API_URL}/auth/logout`, {
+            const api_response = await fetch(`${apiBaseUrl}/auth/logout`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

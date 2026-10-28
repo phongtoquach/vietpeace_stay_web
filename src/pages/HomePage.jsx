@@ -5,6 +5,8 @@ import HeroSlider from '../components/HeroSlider.jsx';
 //import HotelSearchForm from '../components/HotelSearchForm.jsx';
 import AccommodationSearchForm from '../components/AccommodationSearchForm';
 
+import PopularDestinationsGrid from '../components/PopularDestinationsGrid';
+
 import HotelCard from '../components/HotelCard.jsx';
 import ImageGalleryModal from '../components/ImageGalleryModal.jsx';
 import { HOTELS, POPULAR_DESTINATIONS } from '../data/hotelsData.js';
@@ -159,6 +161,49 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* 5. Popular Destinations */}
+      <section className="container-7xl home-section">
+        <div className="home-section-header">
+          <span className="home-section-badge">
+            Mạng lưới điểm đến
+          </span>
+          <h2 className="home-section-title">
+            Khám Phá Các Điểm Đến Nổi Bật
+          </h2>
+          <p className="home-section-subtitle">
+            Hệ thống cơ sở của VietPeace Stay hiện diện tại những trung tâm du lịch hàng đầu Việt Nam.
+          </p>
+        </div>
+
+        <PopularDestinationsGrid/>
+
+        {/* <div className="destinations-grid">
+          {POPULAR_DESTINATIONS.map((dest) => (
+            <Link
+              key={dest.id}
+              to={`/search?locationId=${dest.id}`}
+              className="destination-card"
+            >
+              <div className="destination-card-thumb">
+                <img
+                  src={dest.image}
+                  alt={dest.name}
+                  className="destination-card-img"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="destination-card-content">
+                <h3 className="destination-card-name">
+                  {dest.name}
+                </h3>
+                <p className="destination-card-subtitle">{dest.subtitle}</p>
+              </div>
+            </Link>
+          ))}
+        </div> */}
+      </section>
+
+
       {/* 4. Featured Accommodations Section */}
       <section className="featured-section home-section">
         <div className="container-7xl">
@@ -207,45 +252,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 5. Popular Destinations */}
-      <section className="container-7xl home-section">
-        <div className="home-section-header">
-          <span className="home-section-badge">
-            Mạng lưới điểm đến
-          </span>
-          <h2 className="home-section-title">
-            Khám Phá Các Tỉnh Thành Nổi Bật
-          </h2>
-          <p className="home-section-subtitle">
-            Hệ thống cơ sở của VinaStay hiện diện tại những trung tâm du lịch hàng đầu Việt Nam.
-          </p>
-        </div>
-
-        <div className="destinations-grid">
-          {POPULAR_DESTINATIONS.map((dest) => (
-            <Link
-              key={dest.id}
-              to={`/search?locationId=${dest.id}`}
-              className="destination-card"
-            >
-              <div className="destination-card-thumb">
-                <img
-                  src={dest.image}
-                  alt={dest.name}
-                  className="destination-card-img"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className="destination-card-content">
-                <h3 className="destination-card-name">
-                  {dest.name}
-                </h3>
-                <p className="destination-card-subtitle">{dest.subtitle}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+      
 
       {/* 6. Corporate Direct Booking Advantages */}
       <section className="corporate-section home-section">

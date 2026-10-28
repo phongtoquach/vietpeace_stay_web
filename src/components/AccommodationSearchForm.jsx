@@ -263,10 +263,7 @@ export default function AccommodationSearchForm({ className = "" }) {
         event.preventDefault();
 
         if (loadingDestinations) {
-            showToast(
-                "Danh sách điểm đến đang được tải.",
-                "error"
-            );
+            showToast("Danh sách điểm đến đang được tải.", "error");
             return;
         }
 
@@ -276,45 +273,29 @@ export default function AccommodationSearchForm({ className = "" }) {
         }
 
         if (!selectedLocationId && !selectedAccommodationId) {
-            showToast(
-                "Vui lòng chọn điểm đến hoặc chỗ nghỉ từ danh sách gợi ý.",
-                "error"
-            );
+            showToast("Vui lòng chọn điểm đến hoặc chỗ nghỉ từ danh sách gợi ý.", "error");
 
             setAutocompleteOpen(true);
             return;
         }
 
         if (!checkin || !checkout) {
-            showToast(
-                "Vui lòng chọn ngày nhận phòng và trả phòng.",
-                "error"
-            );
+            showToast("Vui lòng chọn ngày nhận phòng và trả phòng.","error");
             return;
         }
 
         // Chuỗi ngày có cùng định dạng YYYY-MM-DD.
         if (checkin < defaultCheckin) {
-            showToast(
-                "Ngày nhận phòng không được trước hôm nay.",
-                "error"
-            );
+            showToast("Ngày nhận phòng không được trước hôm nay.","error");
             return;
         }
 
         if (checkout <= checkin) {
-            showToast(
-                "Ngày trả phòng phải sau ngày nhận phòng.",
-                "error"
-            );
+            showToast("Ngày trả phòng phải sau ngày nhận phòng.","error");
             return;
         }
 
-        if (
-            !Number.isInteger(rooms) ||
-            rooms < 1 ||
-            rooms > 8
-        ) {
+        if (!Number.isInteger(rooms) || rooms < 1 || rooms > 8) {
             showToast(
                 "Số phòng phải từ 1 đến 8.",
                 "error"
@@ -337,7 +318,7 @@ export default function AccommodationSearchForm({ className = "" }) {
         setAutocompleteOpen(false);
         setRoomPopoverOpen(false);
 
-        navigate(`/search?${params.toString()}`);
+        navigate(`/search-accommodations?${params.toString()}`);
     }
 
     const minCheckoutDate =
