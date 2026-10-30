@@ -1,12 +1,20 @@
 import React from 'react';
-import { Eye, Bed, Maximize2, Users, Check, Sparkles } from 'lucide-react';
+import { Eye, Bed, Maximize2, Users, Check, Sparkles, X } from 'lucide-react';
 import { formatVND } from '../utils/bookingUtils.js';
 
-export default function RoomTypeCard({ room, onSelectRoom, onOpenGallery }) {
+export default function RoomTypeCard({
+  room,
+  selectedRooms = [],
+  onChangeQuantity,
+  onUpdateGuests,
+  onRemoveRoom,
+  onOpenGallery
+}) {
   const images = room.images && room.images.length > 0 ? room.images : [room.image];
+  const isSelected = selectedRooms.length > 0;
 
   return (
-    <article className="room-type-card">
+    <article className={`room-type-card ${isSelected ? 'room-type-card--selected' : ''}`}>
       
       {/* Header Bar */}
       <div className="room-card-header">
@@ -18,13 +26,13 @@ export default function RoomTypeCard({ room, onSelectRoom, onOpenGallery }) {
 
       <div className="room-card-grid">
         
-        {/* Room Thumbnail - REQUIRED FEATURE: Click room thumbnail to preview all images of that room type! */}
+        {/* Room Thumbnail - Click room thumbnail to preview all images of that room type */}
         <div 
           className="room-col-thumb room-card-thumb-box"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onOpenGallery(room.name, images, 0);
+            if (onOpenGallery) onOpenGallery(room.name, images, 0);
           }}
           title="Nhấn để xem toàn bộ ảnh của loại phòng này"
           role="button"
@@ -32,7 +40,7 @@ export default function RoomTypeCard({ room, onSelectRoom, onOpenGallery }) {
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              onOpenGallery(room.name, images, 0);
+              if (onOpenGallery) onOpenGallery(room.name, images, 0);
             }
           }}
         >
@@ -84,7 +92,7 @@ export default function RoomTypeCard({ room, onSelectRoom, onOpenGallery }) {
           </div>
         </div>
 
-        {/* Pricing & CTA */}
+        {/* Pricing & Selection Control */}
         <div className="room-col-pricing" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div style={{ textAlign: 'right', width: '100%', marginBottom: '12px' }}>
             <span style={{ fontSize: '11px', color: 'var(--color-slate)', display: 'block' }}>Giá mỗi đêm từ</span>
@@ -96,17 +104,107 @@ export default function RoomTypeCard({ room, onSelectRoom, onOpenGallery }) {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => onSelectRoom(room)}
-            className="btn-select-room"
-          >
-            <Sparkles style={{ width: '16px', height: '16px' }} />
-            <span>Chọn phòng này</span>
-          </button>
+          {!isSelected ? (
+            /* Button revealed when no rooms of this type are selected */
+            <button
+              type="button"
+              onClick={() => onChangeQuantity && onChangeQuantity(room, 1)}
+              className="btn-select-room"
+            >
+              <Sparkles style={{ width: '16px', height: '16px' }} />
+              <span>Chọn phòng</span>
+            </button>
+          ) : (
+            /* Quantity dropdown revealed when user clicks Chọn phòng or has selected rooms */
+            <div className="room-quantity-control">
+              <label className="room-quantity-label">
+                Số lượng phòng:
+              </label>
+              <select
+                value={selectedRooms.length}
+                onChange={(e) => onChangeQuantity && onChangeQuantity(room, Number(e.target.value))}
+                className="room-quantity-select"
+              >
+                <option value={0}>0 (Bỏ chọn)</option>
+                {Array.from({ length: room.availableRooms }).map((_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {i + 1} phòng
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
       </div>
+
+      {/* Small Room Cards Section (Displayed inside room type card when quantity > 0) */}
+      {isSelected && (
+        <div className="room-selected-list-box">
+          <div className="room-selected-list-header">
+            <span className="room-selected-list-title">
+              Cấu hình khách cho {selectedRooms.length} phòng đã chọn:
+            </span>
+            <span className="room-selected-list-hint">
+              Mỗi phòng mặc định 1 người lớn, 0 trẻ em (tối đa {room.maxOccupancy} khách)
+            </span>
+          </div>
+
+          <div className="room-selected-items-grid">
+            {selectedRooms.map((item, idx) => (
+              <div key={item.clientId || idx} className="room-small-card">
+                <div className="room-small-card-header">
+                  <div className="room-small-card-title-group">
+                    <span className="room-small-card-number">Phòng {idx + 1}</span>
+                    <span className="room-small-card-type">{room.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveRoom && onRemoveRoom(item.clientId)}
+                    className="room-small-card-remove-btn"
+                    title="Bỏ chọn phòng này"
+                    aria-label={`Bỏ chọn phòng ${idx + 1}`}
+                  >
+                    <X style={{ width: '14px', height: '14px' }} />
+                  </button>
+                </div>
+
+                <div className="room-small-card-guests">
+                  <div className="room-small-guest-group">
+                    <label className="room-small-guest-label">Người lớn</label>
+                    <select
+                      value={item.adults}
+                      onChange={(e) => onUpdateGuests && onUpdateGuests(item.clientId, 'adults', e.target.value)}
+                      className="room-small-guest-select"
+                    >
+                      {Array.from({ length: item.maxAdults || 3 }).map((_, i) => (
+                        <option key={i + 1} value={i + 1}>
+                          {i + 1} người lớn
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="room-small-guest-group">
+                    <label className="room-small-guest-label">Trẻ em</label>
+                    <select
+                      value={item.children}
+                      onChange={(e) => onUpdateGuests && onUpdateGuests(item.clientId, 'children', e.target.value)}
+                      className="room-small-guest-select"
+                    >
+                      {Array.from({ length: (item.maxChildren !== undefined ? item.maxChildren : 2) + 1 }).map((_, i) => (
+                        <option key={i} value={i}>
+                          {i} trẻ em
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
     </article>
   );

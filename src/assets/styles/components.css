@@ -1299,6 +1299,375 @@
 }
 
 /* --------------------------------------------------------------------------
+   6.1 Hotel Stay Search Controls & Room Selection (Hotel Detail Page)
+   -------------------------------------------------------------------------- */
+.stay-search-section {
+  padding-bottom: 1.5rem;
+}
+
+.hotel-stay-search-card {
+  background-color: var(--color-white);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
+  padding: 1.25rem 1.5rem;
+}
+
+.hotel-stay-search-header {
+  margin-bottom: 1rem;
+}
+
+.hotel-stay-search-title {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--color-navy);
+  letter-spacing: -0.01em;
+}
+
+.hotel-stay-search-subtitle {
+  font-size: 0.8125rem;
+  color: var(--color-slate);
+  margin-top: 2px;
+}
+
+.hotel-stay-search-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+@media (min-width: 768px) {
+  .hotel-stay-search-grid {
+    grid-template-columns: 1fr 1fr 1fr auto;
+  }
+}
+
+.stay-search-col-date,
+.stay-search-col-rooms {
+  display: flex;
+  flex-direction: column;
+}
+
+.stay-search-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-slate);
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+
+.stay-search-input-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-white);
+  transition: all var(--transition-fast);
+  height: 46px;
+  box-sizing: border-box;
+}
+
+.stay-search-input-box:focus-within {
+  border-color: var(--color-sunshine);
+  box-shadow: 0 0 0 2px rgba(245, 184, 46, 0.2);
+}
+
+.stay-search-select {
+  width: 100%;
+  background: transparent;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  outline: none;
+  cursor: pointer;
+}
+
+.stay-search-col-submit {
+  display: flex;
+  align-items: flex-end;
+}
+
+.stay-search-submit-btn {
+  height: 46px;
+  padding: 0 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-sunshine);
+  color: var(--color-navy);
+  font-weight: 700;
+  font-size: 0.875rem;
+  border: none;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  white-space: nowrap;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .stay-search-submit-btn {
+    width: auto;
+  }
+}
+
+.stay-search-submit-btn:hover {
+  background-color: var(--color-sunshine-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Prompt Card when Stay Parameters are missing in URL */
+.stay-search-prompt-card {
+  background-color: var(--color-white);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  padding: 2.5rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  text-align: left;
+}
+
+@media (max-width: 640px) {
+  .stay-search-prompt-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 2rem 1.25rem;
+  }
+}
+
+.stay-search-prompt-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-full);
+  background-color: rgba(255, 241, 194, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stay-search-prompt-title {
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--color-navy);
+  margin-bottom: 6px;
+}
+
+.stay-search-prompt-desc {
+  font-size: 0.875rem;
+  color: var(--color-slate);
+  line-height: 1.6;
+}
+
+/* Room Quantity Control Dropdown inside RoomTypeCard */
+.room-quantity-control {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+
+.room-quantity-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-slate);
+}
+
+.room-quantity-select {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-sunshine);
+  background-color: var(--color-sunshine-light);
+  color: var(--color-navy);
+  font-weight: 800;
+  font-size: 0.875rem;
+  outline: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: all var(--transition-fast);
+}
+
+.room-quantity-select:focus {
+  border-color: var(--color-sunshine-hover);
+  box-shadow: 0 0 0 2px rgba(245, 184, 46, 0.3);
+}
+
+/* Small Room Cards inside RoomTypeCard */
+.room-type-card--selected {
+  border-color: rgba(245, 184, 46, 0.6);
+  box-shadow: 0 2px 8px rgba(245, 184, 46, 0.15);
+}
+
+.room-selected-list-box {
+  padding: 1.25rem;
+  background-color: #F8FAFC;
+  border-top: 1px solid var(--color-border);
+}
+
+.room-selected-list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.room-selected-list-title {
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--color-navy);
+}
+
+.room-selected-list-hint {
+  font-size: 11px;
+  color: var(--color-slate);
+}
+
+.room-selected-items-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .room-selected-items-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .room-selected-items-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.room-small-card {
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.room-small-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.room-small-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.room-small-card-number {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #B45309;
+  background-color: rgba(245, 184, 46, 0.2);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.room-small-card-type {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-slate);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+.room-small-card-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-slate);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.room-small-card-remove-btn:hover {
+  color: #E11D48;
+  background-color: #FFF1F2;
+}
+
+.room-small-card-guests {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.room-small-guest-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.room-small-guest-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-slate);
+}
+
+.room-small-guest-select {
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-white);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-navy);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.room-small-guest-select:focus {
+  border-color: var(--color-sunshine);
+}
+
+/* Empty state when no room type has enough rooms */
+.hotel-rooms-empty-state {
+  background-color: var(--color-white);
+  border-radius: var(--radius-xl);
+  border: 1px dashed var(--color-border);
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
    7. Image Gallery Modal
    -------------------------------------------------------------------------- */
 .gallery-modal-backdrop {
@@ -1513,4 +1882,151 @@
 @keyframes bounceIn {
   0% { transform: translateY(12px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
+}
+
+/* --------------------------------------------------------------------------
+   9. Login Modal (Customer Authentication)
+   -------------------------------------------------------------------------- */
+.login-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-color: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fadeIn 200ms ease-out;
+}
+
+.login-modal-dialog {
+  position: relative;
+  width: 100%;
+  max-width: 28rem;
+  background-color: var(--color-white);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  padding: 2rem;
+  box-shadow: var(--shadow-2xl);
+  animation: bounceIn 200ms ease-out;
+}
+
+@media (min-width: 640px) {
+  .login-modal-dialog {
+    padding: 2.25rem;
+  }
+}
+
+.login-modal-close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  color: var(--color-slate);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.login-modal-close-btn:hover {
+  background-color: #F1F5F9;
+  color: var(--color-navy);
+}
+
+.auth-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-input--error {
+  border-color: #E11D48 !important;
+  background-color: #FFF1F2 !important;
+}
+
+.auth-field-error {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #E11D48;
+  margin-top: 4px;
+}
+
+.auth-banner-error {
+  background-color: #FFF1F2;
+  border: 1px solid #FECDD3;
+  color: #9F1239;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Selected Room Card in Summary */
+.selected-room-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-navy);
+  line-height: 1.3;
+}
+
+.selected-room-remove-btn {
+  padding: 4px;
+  color: var(--color-slate);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.selected-room-remove-btn:hover {
+  color: #E11D48;
+  background-color: #FFF1F2;
+}
+
+.selected-room-guests-static {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-slate);
+  background-color: rgba(241, 245, 249, 0.7);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  width: fit-content;
+}
+
+.selected-room-pricing-box {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--color-border);
+  font-size: 11px;
+}
+
+.selected-room-price-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--color-slate);
+}
+
+.selected-room-price-line--total {
+  font-weight: 700;
+  color: var(--color-navy);
 }
