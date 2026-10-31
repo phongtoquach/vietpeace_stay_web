@@ -33,9 +33,11 @@ export function AppProvider({ children }) {
     useEffect(() => {
         async function loadActiveLocationsAndAccommodations() {
             try {
-                const response = await fetch(
-                    `${apiBaseUrl}/lookup/locations-and-accommodations`
-                );
+                const response = await fetch(`${apiBaseUrl}/lookup/locations-and-accommodations`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: "include"
+                });
 
                 if (!response.ok) {
                     setDestinationsError("Không thể tải danh sách điểm đến và chỗ nghỉ.");

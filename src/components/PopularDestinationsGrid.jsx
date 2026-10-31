@@ -14,7 +14,11 @@ export default function PopularDestinationsGrid() {
 
 		async function fetchFeaturedLocations() {
 			try {
-				const api_response = await fetch(import.meta.env.VITE_API_BASE_URL + "/locations/featured-locations");
+				const api_response = await fetch(import.meta.env.VITE_API_BASE_URL + "/locations/featured-locations", {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: "include"
+                });
 
 				if (!api_response.ok) {
 					throw new Error("Không thể tải danh sách điểm đến.");
