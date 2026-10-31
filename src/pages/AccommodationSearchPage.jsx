@@ -4,7 +4,9 @@ import { useSearchParams, Link } from 'react-router-dom';
 //import HotelSearchForm from '../components/HotelSearchForm.jsx';
 import AccommodationSearchForm from '../components/AccommodationSearchForm';
 
-import HotelCard from '../components/HotelCard.jsx';
+//import HotelCard from '../components/HotelCard.jsx';
+import AccommodationCard from '../components/AccommodationCard';
+
 import ImageGalleryModal from '../components/ImageGalleryModal.jsx';
 import { HOTELS, AUTOCOMPLETE_OPTIONS } from '../data/hotelsData.js';
 import { formatDateVN, formatVND } from '../utils/bookingUtils.js';
@@ -150,7 +152,9 @@ function computeFilteredHotels(hotels, params) {
   });
 }
 
-export default function SearchPage() {
+export default function AccommodationSearchPage() {
+  console.log("[AccommodationSearchPage] Vừa vào hàm component AccommodationSearchPage !");
+
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Search parameters from URL (single source of truth)
@@ -884,7 +888,7 @@ export default function SearchPage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                   {paginatedHotels.map((hotel) => (
-                    <HotelCard
+                    <AccommodationCard
                       key={hotel.id}
                       hotel={hotel}
                       onOpenGallery={handleOpenGallery}
