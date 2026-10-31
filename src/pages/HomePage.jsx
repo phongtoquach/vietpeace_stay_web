@@ -65,7 +65,7 @@ export default function HomePage() {
         <div className="category-grid">
           {/* Category 1: Hotels */}
           <Link
-            to="/search?propertyType=HOTEL"
+            to="/search-accommodations?accommodationTypeIds=1"
             className="category-card"
           >
             <div className="category-card-thumb">
@@ -97,7 +97,7 @@ export default function HomePage() {
 
           {/* Category 2: Resorts */}
           <Link
-            to="/search?propertyType=RESORT"
+            to="/search-accommodations?accommodationTypeIds=2"
             className="category-card"
           >
             <div className="category-card-thumb">
@@ -129,7 +129,7 @@ export default function HomePage() {
 
           {/* Category 3: Homestay */}
           <Link
-            to="/search?propertyType=HOMESTAY"
+            to="/search-accommodations?accommodationTypeIds=3"
             className="category-card"
           >
             <div className="category-card-thumb">

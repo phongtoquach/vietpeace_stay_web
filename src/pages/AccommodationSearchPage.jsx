@@ -114,6 +114,8 @@ export function buildSearchBody(params) {
 }
 
 export default function AccommodationSearchPage() {
+    console.log("[AccommodationSearchPage] Vừa vào hàm component AccommodationSearchPage !");
+
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
 
@@ -195,9 +197,11 @@ export default function AccommodationSearchPage() {
         totalPages: 0,
     });
 
-    // Chạy khi pathname/query/hash thay đổi, kể cả lần mở trang đầu tiên.
+    // useEffect này chạy khi pathname/query thay đổi, kể cả lần mở trang đầu tiên.
     // Cleanup chỉ ngăn response cũ ghi đè response mới; không dùng AbortController.
     useEffect(() => {
+        console.log("[AccommodationSearchPage] đang chạy useEffect() gọi API accommodations/search !");
+
         let ignoreResponse = false;
 
         async function loadAccommodations() {
@@ -214,6 +218,9 @@ export default function AccommodationSearchPage() {
             setGalleryModal((previous) => ({ ...previous, isOpen: false }));
 
             try {
+                console.log("[AccommodationSearchPage - useEffect] Chuan bi buildSearchBody() ! Value của location.search : ");
+                console.log(location.search);
+
                 const body = buildSearchBody(new URLSearchParams(location.search));
                 const response = await fetch(`${API_BASE_URL}/accommodations/search`, {
                     method: 'POST',
@@ -245,6 +252,7 @@ export default function AccommodationSearchPage() {
 
         loadAccommodations();
         return () => {
+            console.log("[AccommodationSearchPage] đang chạy hàm clenaup của useEffect() gọi API accommodations/search !");
             ignoreResponse = true;
         };
     }, [location.pathname, location.search, retryKey]);
@@ -383,6 +391,9 @@ export default function AccommodationSearchPage() {
 
     // Helper to update URL search parameters while preserving all other query parameters
     const updateFilterParam = (type, value) => {
+        console.log("[updateFilterParam] Đang chạy hàm updateFilterParam() ! Data cua searchParams : ");
+        console.log(searchParams);
+
         const nextParams = new URLSearchParams(searchParams);
         // Reset pagination to page 1 on any filter or sort change
         nextParams.set('page', '1');
@@ -414,6 +425,8 @@ export default function AccommodationSearchPage() {
                 nextParams.delete('sort');
             }
         }
+
+        console.log("[updateFilterParam] chuan bi setSearchParams, render lai AccommodationSearchPage !");
 
         setSearchParams(nextParams);
         window.scrollTo({ top: 0, behavior: 'smooth' });

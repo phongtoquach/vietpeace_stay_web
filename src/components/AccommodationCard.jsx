@@ -69,8 +69,12 @@ function AmenityPill({ amenity }) {
 }
 
 export default function AccommodationCard({ accommodation, hotel, onOpenGallery, searchCriteria = {} }) {
+    console.log("[AccommodationCard] Vừa vào hàm component AccommodationCard ! Data của accommodation : ");
+    console.log(accommodation);
+
     // Giữ hỗ trợ prop hotel nếu bên gọi vẫn dùng tên prop cũ.
-    const item = accommodation ?? hotel;
+    //const item = accommodation ?? hotel;
+    const item = accommodation;
     const images = getAccommodationImages(item);
     const cover = images[0];
     const [imageFailed, setImageFailed] = useState(false);
