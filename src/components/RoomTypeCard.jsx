@@ -1,9 +1,41 @@
 import React from 'react';
-import { Eye, Bed, Maximize2, Users, Check, Sparkles, X } from 'lucide-react';
-import { formatVND } from '../utils/bookingUtils.js';
+import { Eye, Bed, Maximize2, Users, Check, Sparkles, X, Coffee, Waves, Bath, Utensils, Wifi } from 'lucide-react';
+import { formatVND, getStayNights, isSpecialHoliday, isWeekendNight } from '../utils/bookingUtils.js';
+import PriceBreakdownTooltip from './PriceBreakdownTooltip.jsx';
+
+const getRoomAmenityIcon = (amenityText) => {
+  if (!amenityText) return <Sparkles style={{ width: '14px', height: '14px', color: 'var(--color-navy)' }} />;
+  const lower = String(amenityText).toLowerCase();
+
+  if (lower.includes('tắm') || lower.includes('sen') || lower.includes('jacuzzi')) {
+    return <Bath style={{ width: '14px', height: '14px', color: 'var(--color-navy)' }} />;
+  }
+  if (lower.includes('cà phê') || lower.includes('minibar') || lower.includes('trà') || lower.includes('cocktail')) {
+    return <Coffee style={{ width: '14px', height: '14px', color: 'var(--color-sunshine)' }} />;
+  }
+  if (lower.includes('bếp') || lower.includes('bàn ăn') || lower.includes('ăn')) {
+    return <Utensils style={{ width: '14px', height: '14px', color: 'var(--color-navy)' }} />;
+  }
+  if (lower.includes('bơi') || lower.includes('biển') || lower.includes('hồ bơi')) {
+    return <Waves style={{ width: '14px', height: '14px', color: 'var(--color-navy)' }} />;
+  }
+  if (lower.includes('hướng') || lower.includes('view') || lower.includes('ban công') || lower.includes('cảnh') || lower.includes('nhìn') || lower.includes('hiên')) {
+    return <Eye style={{ width: '14px', height: '14px', color: 'var(--color-sunshine)' }} />;
+  }
+  if (lower.includes('wifi') || lower.includes('mạng')) {
+    return <Wifi style={{ width: '14px', height: '14px', color: 'var(--color-navy)' }} />;
+  }
+  if (lower.includes('lounge') || lower.includes('vip') || lower.includes('đặc quyền') || lower.includes('phòng khách')) {
+    return <Sparkles style={{ width: '14px', height: '14px', color: 'var(--color-sunshine)' }} />;
+  }
+  return <Check style={{ width: '14px', height: '14px', color: 'var(--color-navy)' }} />;
+};
 
 export default function RoomTypeCard({
   room,
+  checkin,
+  checkout,
+  nights,
   selectedRooms = [],
   onChangeQuantity,
   onUpdateGuests,
@@ -12,6 +44,32 @@ export default function RoomTypeCard({
 }) {
   const images = room.images && room.images.length > 0 ? room.images : [room.image];
   const isSelected = selectedRooms.length > 0;
+
+  // Calculate actual base room price and nightly breakdown for ONE room across the selected stay
+  const stayNights = (checkin && checkout) ? getStayNights(checkin, checkout) : [];
+  const nightsCount = stayNights.length > 0 ? stayNights.length : (nights || 1);
+
+  const nightlyBreakdown = stayNights.map((nightDate) => {
+    let price = room.basePrice || 1500000;
+    if (isSpecialHoliday(nightDate)) {
+      price = room.holidayPrice || room.basePrice || 1500000;
+    } else if (isWeekendNight(nightDate)) {
+      price = room.weekendPrice || room.basePrice || 1500000;
+    }
+    const day = nightDate.getDay();
+    const weekdayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    const dateFormatted = `${String(nightDate.getDate()).padStart(2, '0')}/${String(nightDate.getMonth() + 1).padStart(2, '0')}/${nightDate.getFullYear()}`;
+    return {
+      date: nightDate,
+      label: `${weekdayMap[day]} (${dateFormatted})`,
+      price,
+      amountStr: formatVND(price)
+    };
+  });
+
+  const totalBaseStayPrice = nightlyBreakdown.length > 0
+    ? nightlyBreakdown.reduce((sum, n) => sum + n.price, 0)
+    : (room.basePrice || 1500000) * nightsCount;
 
   return (
     <article className={`room-type-card ${isSelected ? 'room-type-card--selected' : ''}`}>
@@ -78,6 +136,18 @@ export default function RoomTypeCard({
             </div>
           </div>
 
+          {/* Room Type Amenities Pills */}
+          {room.amenities && room.amenities.length > 0 && (
+            <div className="hotel-amenity-pill-list" style={{ marginBottom: 0 }}>
+              {room.amenities.map((amenity, idx) => (
+                <span key={idx} className="hotel-amenity-pill">
+                  {getRoomAmenityIcon(amenity)}
+                  <span>{amenity}</span>
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Policies & Perks */}
           <div className="room-policies-box">
             {room.policies && room.policies.map((p, idx) => (
@@ -92,15 +162,26 @@ export default function RoomTypeCard({
           </div>
         </div>
 
-        {/* Pricing & Selection Control */}
+        {/* Pricing & Selection Control: Displays total base room price for ONE room across the stay */}
         <div className="room-col-pricing" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div style={{ textAlign: 'right', width: '100%', marginBottom: '12px' }}>
-            <span style={{ fontSize: '11px', color: 'var(--color-slate)', display: 'block' }}>Giá mỗi đêm từ</span>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-navy)' }} className="tabular-nums">
-              {formatVND(room.basePrice)}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+              <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-slate)' }}>
+                Tiền phòng {nightsCount} đêm:
+              </span>
+              <PriceBreakdownTooltip
+                title="Chi tiết tiền phòng"
+                items={nightlyBreakdown}
+                totalLabel="Tổng tiền phòng"
+                totalAmount={totalBaseStayPrice}
+                ariaLabel={`Xem chi tiết tiền phòng ${room.name}`}
+              />
+            </div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-navy)', marginTop: '2px' }} className="tabular-nums">
+              {formatVND(totalBaseStayPrice)}
             </div>
             <span style={{ fontSize: '11px', color: 'var(--color-slate)', display: 'block', marginTop: '2px' }}>
-              (Cuối tuần: {formatVND(room.weekendPrice)})
+              (Giá cho 1 phòng)
             </span>
           </div>
 

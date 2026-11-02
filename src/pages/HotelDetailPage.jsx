@@ -5,6 +5,7 @@ import RoomTypeCard from '../components/RoomTypeCard.jsx';
 import ImageGalleryModal from '../components/ImageGalleryModal.jsx';
 import PropertyOverview from '../components/PropertyOverview.jsx';
 import LoginModal from '../components/LoginModal.jsx';
+import PriceBreakdownTooltip from '../components/PriceBreakdownTooltip.jsx';
 import { HOTELS } from '../data/hotelsData.js';
 import { useBooking } from '../context/BookingContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -485,6 +486,9 @@ export default function HotelDetailPage() {
                     <RoomTypeCard
                       key={room.id}
                       room={room}
+                      checkin={appliedCheckin}
+                      checkout={appliedCheckout}
+                      nights={pricing.nights}
                       selectedRooms={selectedForThisType}
                       onChangeQuantity={handleChangeQuantity}
                       onUpdateGuests={handleUpdateGuests}
@@ -542,27 +546,60 @@ export default function HotelDetailPage() {
                       const stayNights = (appliedCheckin && appliedCheckout) ? getStayNights(appliedCheckin, appliedCheckout) : [];
 
                       const nightlyRates = stayNights.map(nightDate => {
+                        let price = item.basePrice || 1500000;
                         if (isSpecialHoliday(nightDate)) {
-                          return item.holidayPrice || item.basePrice || 1500000;
+                          price = item.holidayPrice || item.basePrice || 1500000;
                         } else if (isWeekendNight(nightDate)) {
-                          return item.weekendPrice || item.basePrice || 1500000;
+                          price = item.weekendPrice || item.basePrice || 1500000;
                         }
-                        return item.basePrice || 1500000;
+                        const day = nightDate.getDay();
+                        const weekdayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                        const dateFormatted = `${String(nightDate.getDate()).padStart(2, '0')}/${String(nightDate.getMonth() + 1).padStart(2, '0')}/${nightDate.getFullYear()}`;
+                        return {
+                          date: nightDate,
+                          label: `${weekdayMap[day]} (${dateFormatted})`,
+                          price,
+                          amountStr: formatVND(price)
+                        };
                       });
 
                       const roomStayPrice = nightlyRates.length > 0 
-                        ? nightlyRates.reduce((sum, r) => sum + r, 0)
+                        ? nightlyRates.reduce((sum, r) => sum + r.price, 0)
                         : (item.basePrice || 1500000) * nights;
-
-                      const allSameRate = nightlyRates.length > 0 && nightlyRates.every(r => r === nightlyRates[0]);
-                      const avgNightlyRate = nights > 0 ? (roomStayPrice / nights) : (item.basePrice || 1500000);
-                      const displayNightlyRate = allSameRate ? (nightlyRates[0] || item.basePrice || 1500000) : avgNightlyRate;
 
                       // Extra guest charges for this specific room
                       const extraAdults = Math.max(0, (item.adults || 1) - (item.includedAdults || 2));
                       const extraChildren = Math.max(0, (item.children || 0) - (item.includedChildren || 1));
-                      const extraFeePerNight = (extraAdults * (item.extraAdultFee || 300000)) + (extraChildren * (item.extraChildFee || 150000));
-                      const roomExtraTotal = extraFeePerNight * nights;
+                      const adultFeePerNight = item.extraAdultFee || 300000;
+                      const childFeePerNight = item.extraChildFee || 150000;
+
+                      const extraAdultTotal = extraAdults * adultFeePerNight * nights;
+                      const extraChildTotal = extraChildren * childFeePerNight * nights;
+
+                      // Detailed nightly surcharge breakdowns
+                      const adultBreakdown = stayNights.map(nightDate => {
+                        const day = nightDate.getDay();
+                        const weekdayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                        const dateFormatted = `${String(nightDate.getDate()).padStart(2, '0')}/${String(nightDate.getMonth() + 1).padStart(2, '0')}/${nightDate.getFullYear()}`;
+                        const nightlySubtotal = adultFeePerNight * extraAdults;
+                        return {
+                          label: `${weekdayMap[day]} (${dateFormatted})`,
+                          calculationStr: `${formatVND(adultFeePerNight)}/người × ${extraAdults} người = ${formatVND(nightlySubtotal)}`,
+                          amountStr: formatVND(nightlySubtotal)
+                        };
+                      });
+
+                      const childBreakdown = stayNights.map(nightDate => {
+                        const day = nightDate.getDay();
+                        const weekdayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                        const dateFormatted = `${String(nightDate.getDate()).padStart(2, '0')}/${String(nightDate.getMonth() + 1).padStart(2, '0')}/${nightDate.getFullYear()}`;
+                        const nightlySubtotal = childFeePerNight * extraChildren;
+                        return {
+                          label: `${weekdayMap[day]} (${dateFormatted})`,
+                          calculationStr: `${formatVND(childFeePerNight)}/trẻ em × ${extraChildren} trẻ em = ${formatVND(nightlySubtotal)}`,
+                          amountStr: formatVND(nightlySubtotal)
+                        };
+                      });
 
                       return (
                         <div key={item.clientId || idx} className="selected-room-row">
@@ -588,24 +625,88 @@ export default function HotelDetailPage() {
 
                           {/* Pricing Details for this single room */}
                           <div className="selected-room-pricing-box">
-                            <div className="selected-room-price-line">
-                              <span>{allSameRate ? 'Giá phòng/đêm:' : 'Giá phòng trung bình/đêm:'}</span>
-                              <span className="tabular-nums" style={{ fontWeight: 600, color: 'var(--color-navy)' }}>
-                                {formatVND(displayNightlyRate)}
-                              </span>
-                            </div>
-                            <div className="selected-room-price-line selected-room-price-line--total">
-                              <span>Tiền phòng {nights} đêm:</span>
-                              <span className="tabular-nums" style={{ color: 'var(--color-navy)' }}>
+                            {/* Base room price across stay */}
+                            <div className="selected-room-price-line selected-room-price-line--total" style={{ alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>Tiền phòng {nights} đêm:</span>
+                                <PriceBreakdownTooltip
+                                  title="Chi tiết tiền phòng"
+                                  items={nightlyRates}
+                                  totalLabel="Tổng tiền phòng"
+                                  totalAmount={roomStayPrice}
+                                  ariaLabel={`Xem chi tiết tiền phòng ${item.roomName} - Phòng ${typeIndex}`}
+                                />
+                              </div>
+                              <span className="tabular-nums" style={{ color: 'var(--color-navy)', fontWeight: 700 }}>
                                 {formatVND(roomStayPrice)}
                               </span>
                             </div>
-                            {roomExtraTotal > 0 && (
-                              <div className="selected-room-price-line" style={{ color: '#B45309', fontSize: '10.5px' }}>
-                                <span>Phụ thu thêm khách ({nights} đêm):</span>
-                                <span className="tabular-nums">+{formatVND(roomExtraTotal)}</span>
+
+                            {/* Phụ thu người lớn */}
+                            <div
+                              className="selected-room-price-line"
+                              style={{
+                                alignItems: 'center',
+                                color: extraAdultTotal > 0 ? '#B45309' : 'var(--color-slate)',
+                                fontSize: '11px',
+                                marginTop: '4px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>Phụ thu người lớn ({nights} đêm):</span>
+                                {nights >= 2 && (
+                                  <PriceBreakdownTooltip
+                                    title="Chi tiết phụ thu người lớn"
+                                    subtitle={`Số người lớn tính phụ thu: ${extraAdults}`}
+                                    emptyNotice={
+                                      extraAdults === 0
+                                        ? `Phòng đã bao gồm ${item.includedAdults || 2} người lớn. Số khách hiện tại (${item.adults || 1} người lớn) không vượt quá tiêu chuẩn nên không phát sinh phụ thu.`
+                                        : undefined
+                                    }
+                                    items={extraAdults > 0 ? adultBreakdown : []}
+                                    totalLabel="Tổng phụ thu người lớn"
+                                    totalAmount={extraAdultTotal}
+                                    ariaLabel={`Xem chi tiết phụ thu người lớn ${item.roomName} - Phòng ${typeIndex}`}
+                                  />
+                                )}
                               </div>
-                            )}
+                              <span className="tabular-nums" style={{ fontWeight: 600 }}>
+                                {extraAdultTotal > 0 ? `+${formatVND(extraAdultTotal)}` : '0 ₫'}
+                              </span>
+                            </div>
+
+                            {/* Phụ thu trẻ em */}
+                            <div
+                              className="selected-room-price-line"
+                              style={{
+                                alignItems: 'center',
+                                color: extraChildTotal > 0 ? '#B45309' : 'var(--color-slate)',
+                                fontSize: '11px',
+                                marginTop: '2px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>Phụ thu trẻ em ({nights} đêm):</span>
+                                {nights >= 2 && (
+                                  <PriceBreakdownTooltip
+                                    title="Chi tiết phụ thu trẻ em"
+                                    subtitle={`Số trẻ em tính phụ thu: ${extraChildren}`}
+                                    emptyNotice={
+                                      extraChildren === 0
+                                        ? `Phòng đã bao gồm ${item.includedChildren || 1} trẻ em. Số khách hiện tại (${item.children || 0} trẻ em) không vượt quá tiêu chuẩn nên không phát sinh phụ thu.`
+                                        : undefined
+                                    }
+                                    items={extraChildren > 0 ? childBreakdown : []}
+                                    totalLabel="Tổng phụ thu trẻ em"
+                                    totalAmount={extraChildTotal}
+                                    ariaLabel={`Xem chi tiết phụ thu trẻ em ${item.roomName} - Phòng ${typeIndex}`}
+                                  />
+                                )}
+                              </div>
+                              <span className="tabular-nums" style={{ fontWeight: 600 }}>
+                                {extraChildTotal > 0 ? `+${formatVND(extraChildTotal)}` : '0 ₫'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       );
