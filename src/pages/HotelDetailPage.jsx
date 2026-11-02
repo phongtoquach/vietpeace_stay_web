@@ -15,6 +15,8 @@ import { MapPin, Star, Eye, Calendar, Sparkles, X, Clock, AlertCircle } from 'lu
 const STORAGE_STAY_SELECTION_KEY = 'vinastay_stay_selection';
 
 export default function HotelDetailPage() {
+  console.log("[HotelDetailPage] Vừa vào hàm component HotelDetailPage !");
+
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { currentUser, showToast } = useAuth();

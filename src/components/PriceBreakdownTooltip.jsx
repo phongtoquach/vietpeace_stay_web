@@ -13,6 +13,8 @@ export default function PriceBreakdownTooltip({
   ariaLabel = 'Xem chi tiết giá từng đêm',
   iconSize = 18
 }) {
+  console.log("[PriceBreakdownTooltip] Vừa vào hàm component PriceBreakdownTooltip !");
+
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ left: 0, top: 0 });
   const triggerRef = useRef(null);

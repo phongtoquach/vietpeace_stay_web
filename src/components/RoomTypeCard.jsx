@@ -42,6 +42,8 @@ export default function RoomTypeCard({
   onRemoveRoom,
   onOpenGallery
 }) {
+  console.log("[RoomTypeCard] Vừa vào hàm component RoomTypeCard !");
+
   const images = room.images && room.images.length > 0 ? room.images : [room.image];
   const isSelected = selectedRooms.length > 0;
 

@@ -32,6 +32,8 @@ export default function HotelStaySearchForm({
   initialRooms = 1,
   onSearchStay
 }) {
+  console.log("[HotelStaySearchForm] Vừa vào hàm component HotelStaySearchForm !");
+
   const { showToast } = useAuth();
 
   const [checkin, setCheckin] = useState(initialCheckin);
