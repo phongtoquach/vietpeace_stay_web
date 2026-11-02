@@ -41,6 +41,8 @@ const AMENITY_METADATA = {
 };
 
 export default function PropertyOverview({ hotel }) {
+  console.log("[PropertyOverview] Vừa vào hàm component PropertyOverview !");
+
   if (!hotel) return null;
 
   // Fallback nearby places if not explicitly defined
