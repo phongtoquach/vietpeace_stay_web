@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 
-import HotelStaySearchForm from '../components/HotelStaySearchForm.jsx';
+//import HotelStaySearchForm from '../components/HotelStaySearchForm.jsx';
+import AccommodationStayDatesSearchForm from '../components/AccommodationStayDatesSearchForm';
 
 import RoomTypeDetailCard from '../components/room_types/RoomTypeDetailCard';
 
@@ -434,7 +435,7 @@ export default function AccommodationDetailPage() {
 
       {/* 4. Stay Search Controls Section (Placed directly after Property Overview) */}
       <section className="container-7xl stay-search-section">
-        <HotelStaySearchForm
+        <AccommodationStayDatesSearchForm
           initialCheckin={appliedCheckin}
           initialCheckout={appliedCheckout}
           initialRooms={appliedRoomsCount}
