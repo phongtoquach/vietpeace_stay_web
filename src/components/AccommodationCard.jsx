@@ -93,7 +93,7 @@ export default function AccommodationCard({ accommodation, hotel, onOpenGallery,
             queryParams.set(key, String(value));
         }
     }
-    const detailUrl = `/hotel-detail?${queryParams.toString()}`;
+    const detailUrl = `/accommodation-detail?${queryParams.toString()}`;
 
     const type = String(item.accommodation_type_code || '').toLowerCase();
     const badgeClass =
