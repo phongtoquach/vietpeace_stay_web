@@ -240,6 +240,7 @@ export function AuthProvider({ children }) {
     return (
         <AuthContext.Provider value={{
             currentLoggedInUser,
+            setCurrentLoggedInUser,
             isCheckingAuthen,
             authError,
             currentUrl,

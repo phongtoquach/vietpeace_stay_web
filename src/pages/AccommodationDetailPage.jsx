@@ -27,8 +27,10 @@ export default function AccommodationDetailPage() {
 
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { currentUser, showToast } = useAuth();
+  const { currentUser, showToast, currentLoggedInUser } = useAuth();
   const { getActivePendingBooking, createOrUpdatePendingBooking } = useBooking();
+
+  console.log("[AccommodationDetailPage] useState AuthProvider.currentLoggedInUser : ", currentLoggedInUser);
 
   // Read URL search parameters
   const hotelIdParam = searchParams.get('accommodationId') || '101';
@@ -106,6 +108,8 @@ export default function AccommodationDetailPage() {
 
   // Restore or reset selection based on URL stay parameters
   useEffect(() => {
+    console.log("[AccommodationDetailPage] đang chạy useEffect setSelectedItems !");
+
     if (!isStaySearchValid) {
       setSelectedItems([]);
       return;
@@ -193,9 +197,9 @@ export default function AccommodationDetailPage() {
       }
     };
 
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
+    //updateTimer();
+    //const interval = setInterval(updateTimer, 1000);
+    //return () => clearInterval(interval);
   }, [pendingBooking]);
 
   // Handler when user submits the Stay Search form
@@ -301,7 +305,7 @@ export default function AccommodationDetailPage() {
 
   // Submit booking
   const handleProceedBooking = () => {
-    if (!currentUser) {
+    if (!currentLoggedInUser) {
       setIsLoginModalOpen(true);
       return;
     }
@@ -317,7 +321,7 @@ export default function AccommodationDetailPage() {
         checkin: appliedCheckin,
         checkout: appliedCheckout,
         items: selectedItems,
-        currentUser
+        currentLoggedInUser
       });
 
       if (booking && booking.id) {
@@ -747,7 +751,7 @@ export default function AccommodationDetailPage() {
                 </div>
 
                 {/* CTA Action: Depends on Auth Status */}
-                {currentUser ? (
+                {currentLoggedInUser ? (
                   <button
                     type="button"
                     onClick={handleProceedBooking}
