@@ -86,7 +86,7 @@ export default function AccommodationCard({ accommodation, hotel, onOpenGallery,
     const galleryImages = images.map((image) => image.image_url);
     const queryParams = new URLSearchParams();
     // Giữ route chi tiết hiện có trong component gốc.
-    queryParams.set('hotelId', String(item.id));
+    queryParams.set('accommodationId', String(item.id));
     for (const key of ['checkin', 'checkout', 'rooms', 'adults', 'children']) {
         const value = searchCriteria[key];
         if (value !== undefined && value !== null && value !== '') {

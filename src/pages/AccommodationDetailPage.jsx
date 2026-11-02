@@ -30,7 +30,7 @@ export default function AccommodationDetailPage() {
   const { getActivePendingBooking, createOrUpdatePendingBooking } = useBooking();
 
   // Read URL search parameters
-  const hotelIdParam = searchParams.get('hotelId') || '101';
+  const hotelIdParam = searchParams.get('accommodationId') || '101';
   const checkinParam = searchParams.get('checkin');
   const checkoutParam = searchParams.get('checkout');
   const roomsParam = searchParams.get('rooms');
@@ -211,12 +211,12 @@ export default function AccommodationDetailPage() {
 
     // Build new query parameters preserving existing unrelated parameters
     const nextParams = new URLSearchParams(searchParams);
-    nextParams.set('hotelId', hotelIdParam);
+    nextParams.set('accommodationId', hotelIdParam);
     nextParams.set('checkin', checkin);
     nextParams.set('checkout', checkout);
     nextParams.set('rooms', String(rooms));
 
-    navigate(`/hotel-detail?${nextParams.toString()}`);
+    navigate(`/accommodation-detail?${nextParams.toString()}`);
     showToast('Đã cập nhật ngày lưu trú & số phòng tìm kiếm!', 'success');
   };
 
