@@ -204,8 +204,13 @@ export default function AccommodationDetailPage() {
 
   // Handler when user submits the Stay Search form
   const handleSearchStay = ({ checkin, checkout, rooms }) => {
+    console.log("[AccommodationDetailPage - handleSearchStay] đang chạy hàm handleSearchStay() ! checkin : " + checkin + " ; checkout : " + checkout + " ; rooms : " + rooms);
+    console.log("[AccommodationDetailPage - handleSearchStay] appliedCheckin : " + appliedCheckin + " ; appliedCheckout : " + appliedCheckout);
+    
     // If dates changed from previous applied stay, clear existing selections immediately
     if (checkin !== appliedCheckin || checkout !== appliedCheckout) {
+      console.log("[AccommodationDetailPage - handleSearchStay] checkin !== appliedCheckin OR checkout !== appliedCheckout ! Thuc hien setSelectedItems([]) !");
+
       setSelectedItems([]);
       try {
         sessionStorage.removeItem(STORAGE_STAY_SELECTION_KEY);
@@ -214,6 +219,7 @@ export default function AccommodationDetailPage() {
       }
     }
 
+    
     // Build new query parameters preserving existing unrelated parameters
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('accommodationId', hotelIdParam);
@@ -221,8 +227,10 @@ export default function AccommodationDetailPage() {
     nextParams.set('checkout', checkout);
     nextParams.set('rooms', String(rooms));
 
+    console.log("[AccommodationDetailPage - handleSearchStay] Thuc hien navigate() ! Cac URL param sẽ gắn vào URL là : " + nextParams.toString());
+
     navigate(`/accommodation-detail?${nextParams.toString()}`);
-    showToast('Đã cập nhật ngày lưu trú & số phòng tìm kiếm!', 'success');
+    //showToast('Đã cập nhật ngày lưu trú & số phòng tìm kiếm!', 'success');
   };
 
   // Handler for changing quantity of a room type via button or dropdown
