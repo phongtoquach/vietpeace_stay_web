@@ -108,17 +108,28 @@ export default function AccommodationDetailPage() {
 
   // Restore or reset selection based on URL stay parameters
   useEffect(() => {
-    console.log("[AccommodationDetailPage] đang chạy useEffect setSelectedItems !");
+    console.log("[AccommodationDetailPage] đang chạy useEffect setSelectedItems từ sessionStorage !");
 
     if (!isStaySearchValid) {
+      console.log("[AccommodationDetailPage - useEffect setSelectedItems] isStaySearchValid = FALSE ! Thuc hien setSelectedItems([]), tuc la xoa het những room đang được chọn !");
       setSelectedItems([]);
       return;
     }
 
     const prevStay = prevStayRef.current;
+    console.log("[AccommodationDetailPage - useEffect setSelectedItems] Value hiện tại của biến useRef prevStayRef : ");
+    console.log(prevStay);
+
+    console.log("[AccommodationDetailPage - useEffect setSelectedItems] Value của hotelIdParam : " + hotelIdParam);
+    console.log("[AccommodationDetailPage - useEffect setSelectedItems] Value của appliedCheckin : " + appliedCheckin);
+    console.log("[AccommodationDetailPage - useEffect setSelectedItems] Value của appliedCheckout : " + appliedCheckout);
+
+    // set datesChanged
     const datesChanged = prevStay.checkin !== appliedCheckin || prevStay.checkout !== appliedCheckout || prevStay.hotelId !== hotelIdParam;
 
     if (datesChanged) {
+      console.log("[AccommodationDetailPage - useEffect setSelectedItems] datesChanged = TRUE ! Các URL param accommodationId, checkin, checkout đã thay đổi so với lần trước ! Thuc hien setSelectedItems([]) va sessionStorage.removeItem('vinastay_stay_selection') !");
+
       // Clear stale selection if dates or hotel changed
       setSelectedItems([]);
       try {
@@ -126,17 +137,31 @@ export default function AccommodationDetailPage() {
       } catch (e) {
         // ignore
       }
+
+      console.log("[AccommodationDetailPage - useEffect setSelectedItems] datesChanged = TRUE ! Update value hiện tại của biến prevStayRef thành : ", {
+        hotelId: hotelIdParam,
+        checkin: appliedCheckin,
+        checkout: appliedCheckout
+      });
+
       prevStayRef.current = {
         hotelId: hotelIdParam,
         checkin: appliedCheckin,
         checkout: appliedCheckout
       };
     } else {
+      console.log("[AccommodationDetailPage - useEffect setSelectedItems] datesChanged = FALSE ! Các URL param accommodationId, checkin, checkout không thay đổi so với lần trước ! Thực hiện sessionStorage.getItem('vinastay_stay_selection') !");
+
       // Try restoring from sessionStorage
       try {
         const saved = sessionStorage.getItem(STORAGE_STAY_SELECTION_KEY);
+        console.log("[AccommodationDetailPage - useEffect setSelectedItems] datesChanged = FALSE ! Data của sessionStorage item 'vinastay_stay_selection' : ");
+        console.log(saved);
+
         if (saved) {
           const parsed = JSON.parse(saved);
+          console.log("[AccommodationDetailPage - useEffect setSelectedItems] datesChanged = FALSE ! Parse sessionStorage item thanh JS object : ", parsed);
+
           if (
             String(parsed.hotelId) === String(hotel.id) &&
             parsed.checkin === appliedCheckin &&
@@ -144,6 +169,8 @@ export default function AccommodationDetailPage() {
             Array.isArray(parsed.rooms) &&
             parsed.rooms.length > 0
           ) {
+            console.log("[AccommodationDetailPage - useEffect setSelectedItems] datesChanged = FALSE ! checkin va checkout của sessionStorgae item 'vinastay_stay_selection' MATCHED với URL param checkin, checkout ! Thực hiện setSelectedItems(parsed.rooms) !");
+
             setSelectedItems(parsed.rooms);
           }
         }
