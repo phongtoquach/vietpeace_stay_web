@@ -22,9 +22,9 @@
 .register-note p { color: #637267; }
 .register-note strong { color: var(--register-green); font-weight: 600; }
 .register-card { min-width: 0; padding: 36px; background: white; border: 1px solid #efeee6; border-radius: 24px; box-shadow: 0 14px 48px #173b2b0c; }
-.register-card-eyebrow { display: block; font-size: 9px; font-weight: 800; letter-spacing: 1.4px; color: #6c776e; }
+.register-card-eyebrow { display: block; font-size: 12px; font-weight: 800; letter-spacing: 1px; line-height: 1.7; color: var(--register-green); }
 .register-card h2 { margin: 10px 0 4px; font-size: 29px; letter-spacing: -1px; }
-.register-card-description { color: #738077; font-size: 13px; margin-bottom: 25px; }
+.register-card-description { color: var(--register-green); font-size: 15px; font-weight: 600; margin-top: 8px; margin-bottom: 25px; }
 .register-field { margin-bottom: 16px; }
 .register-field label { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; }
 .register-field label > span { color: #a16b00; }

@@ -36,9 +36,8 @@ export default function RegisterPage() {
           <div className="register-note"><span aria-hidden="true">✦</span><p>Đi để khám phá.<br /><strong>Ở để cảm nhận bình yên.</strong></p></div>
         </section>
 
-        <section className="register-card" aria-labelledby="register-title">
+        <section className="register-card" aria-label="Đăng ký tài khoản">
           <span className="register-card-eyebrow">CHÀO MỪNG BẠN ĐẾN VỚI VIETPEACESTAY</span>
-          <h2 id="register-title">Tạo tài khoản</h2>
           <p className="register-card-description">Hành trình mới bắt đầu từ đây.</p>
           <form onSubmit={handleSubmit} onChange={() => setMessage(null)}>
             <div className="register-field">
