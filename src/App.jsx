@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 import { AuthProvider } from './context/AuthContext';
@@ -6,6 +5,7 @@ import { BookingProvider } from './context/BookingContext.jsx';
 
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
 import MyBookingsPage from './pages/MyBookingsPage';
 
@@ -28,6 +28,7 @@ function App() {
                                 {/* PUBLIC ROUTES */}
                                 <Route path="/" element={<HomePage />} />
                                 <Route path="/login" element={<LoginPage />} />
+                                <Route path="/register" element={<RegisterPage />} />
                                 
 
                                 {/* ROUTES REQUIRED LOGGED-IN USER */}
