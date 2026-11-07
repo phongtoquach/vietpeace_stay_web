@@ -2,19 +2,121 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
-import { formatVND, formatDateVN, formatCountdown } from '../utils/bookingUtils.js';
-import { Clock, ShieldCheck, CreditCard, QrCode, Smartphone, Building, CheckCircle2 } from 'lucide-react';
+import { formatVND, formatDateVN, getStayNights, isSpecialHoliday, isWeekendNight } from '../utils/bookingUtils.js';
+import { ShieldCheck, AlertCircle } from 'lucide-react';
+import PriceBreakdownTooltip from '../components/PriceBreakdownTooltip.jsx';
+import { HOTELS } from '../data/hotelsData.js';
+
+// 24 one-hour windows covering the full day with standard ASCII hyphen and exact spacing
+const ARRIVAL_TIME_WINDOWS = [
+  '00:00 - 01:00',
+  '01:00 - 02:00',
+  '02:00 - 03:00',
+  '03:00 - 04:00',
+  '04:00 - 05:00',
+  '05:00 - 06:00',
+  '06:00 - 07:00',
+  '07:00 - 08:00',
+  '08:00 - 09:00',
+  '09:00 - 10:00',
+  '10:00 - 11:00',
+  '11:00 - 12:00',
+  '12:00 - 13:00',
+  '13:00 - 14:00',
+  '14:00 - 15:00',
+  '15:00 - 16:00',
+  '16:00 - 17:00',
+  '17:00 - 18:00',
+  '18:00 - 19:00',
+  '19:00 - 20:00',
+  '20:00 - 21:00',
+  '21:00 - 22:00',
+  '22:00 - 23:00',
+  '23:00 - 00:00'
+];
+
+/**
+ * Normalizes an arrival time string to the exact "HH:MM - HH:MM" format
+ */
+const normalizeArrivalTime = (val) => {
+  if (!val || typeof val !== 'string') return '';
+  const trimmed = val.trim();
+  const match = trimmed.match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
+  if (match) {
+    return `${match[1]} - ${match[2]}`;
+  }
+  return trimmed;
+};
+
+/**
+ * Standard email format validation
+ */
+const isValidEmail = (emailStr) => {
+  if (!emailStr) return false;
+  const trimmed = emailStr.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+};
+
+/**
+ * Flexible phone format validation allowing international prefixes, dashes, spaces, parentheses
+ */
+const isValidPhone = (phoneStr) => {
+  if (!phoneStr) return false;
+  const trimmed = phoneStr.trim();
+  if (!/^\+?[0-9\s\-().]{7,25}$/.test(trimmed)) return false;
+  const digitCount = (trimmed.match(/\d/g) || []).length;
+  return digitCount >= 7 && digitCount <= 16;
+};
 
 export default function CheckoutPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { bookings, markBookingPaid, markBookingExpired } = useBooking();
-  const { showToast } = useAuth();
+  const { currentUser, showToast } = useAuth();
 
   const bookingId = searchParams.get('bookingId');
   const booking = bookings.find(b => String(b.id) === String(bookingId)) || bookings.find(b => b.status === 'PENDING') || bookings[0];
 
-  const [paymentMethod, setPaymentMethod] = useState('CREDIT_CARD');
+  // Section A: Contact Information
+  const [contactName, setContactName] = useState(() => {
+    return (booking?.contact_name || booking?.contactName || booking?.userFullName || currentUser?.fullName || '').trim();
+  });
+  const [contactEmail, setContactEmail] = useState(() => {
+    return (booking?.contact_email || booking?.contactEmail || booking?.userEmail || currentUser?.email || '').trim();
+  });
+  const [contactPhone, setContactPhone] = useState(() => {
+    return (booking?.contact_phone || booking?.contactPhone || booking?.userPhone || currentUser?.phone || '').trim();
+  });
+
+  // Section B: Lead Guest Information
+  const [isBookingForOther, setIsBookingForOther] = useState(() => {
+    if (booking?.is_booking_for_other !== undefined) return Boolean(booking.is_booking_for_other);
+    if (booking?.isBookingForOther !== undefined) return Boolean(booking.isBookingForOther);
+    return false;
+  });
+  const [guestName, setGuestName] = useState(() => (booking?.guest_name || booking?.guestName || ''));
+  const [guestPhone, setGuestPhone] = useState(() => (booking?.guest_phone || booking?.guestPhone || ''));
+  const [guestEmail, setGuestEmail] = useState(() => (booking?.guest_email || booking?.guestEmail || ''));
+
+  // Section C: Additional Information
+  const [specialRequests, setSpecialRequests] = useState(() => {
+    return booking?.special_requests || booking?.specialRequests || '';
+  });
+  const [expectedArrivalTime, setExpectedArrivalTime] = useState(() => {
+    const raw = booking?.expected_arrival_time || booking?.expectedArrivalTime || '';
+    return normalizeArrivalTime(raw);
+  });
+
+  // Payment Method: Default and only VNPAY
+  const [paymentMethod, setPaymentMethod] = useState('VNPAY');
+
+  // Terms Acceptance: Unchecked by default
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // Field validation errors
+  const [errors, setErrors] = useState({});
+
+  // Countdown & Processing state
   const [countdown, setCountdown] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -50,6 +152,32 @@ export default function CheckoutPage() {
 
   const isExpired = booking.status === 'EXPIRED' || (countdown <= 0 && booking.status === 'PENDING');
 
+  // Switch guest options without wiping typed values
+  const handleGuestOptionChange = (forOther) => {
+    setIsBookingForOther(forOther);
+    // Clear validation messages that no longer apply
+    if (!forOther) {
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next.guest_name;
+        delete next.guest_phone;
+        delete next.guest_email;
+        return next;
+      });
+    }
+  };
+
+  const handleFieldChange = (field, setter, value) => {
+    setter(value);
+    if (errors[field]) {
+      setErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
   const handleSubmitPayment = (e) => {
     e.preventDefault();
 
@@ -58,206 +186,735 @@ export default function CheckoutPage() {
       return;
     }
 
+    const newErrors = {};
+
+    // 1. Validate Contact Info
+    const trimmedContactName = contactName.trim();
+    if (!trimmedContactName) {
+      newErrors.contact_name = 'Vui lòng nhập họ và tên người đặt phòng.';
+    }
+
+    const trimmedContactEmail = contactEmail.trim();
+    if (!trimmedContactEmail) {
+      newErrors.contact_email = 'Vui lòng nhập email nhận xác nhận.';
+    } else if (!isValidEmail(trimmedContactEmail)) {
+      newErrors.contact_email = 'Địa chỉ email nhận xác nhận không hợp lệ.';
+    }
+
+    const trimmedContactPhone = contactPhone.trim();
+    if (!trimmedContactPhone) {
+      newErrors.contact_phone = 'Vui lòng nhập số điện thoại người đặt phòng.';
+    } else if (!isValidPhone(trimmedContactPhone)) {
+      newErrors.contact_phone = 'Số điện thoại không hợp lệ.';
+    }
+
+    // 2. Validate Lead Guest Info (Only when booking for another person)
+    let trimmedGuestName = '';
+    let trimmedGuestPhone = '';
+    let trimmedGuestEmail = '';
+
+    if (isBookingForOther) {
+      trimmedGuestName = guestName.trim();
+      if (!trimmedGuestName) {
+        newErrors.guest_name = 'Vui lòng nhập họ tên khách đại diện nhận phòng.';
+      }
+
+      trimmedGuestPhone = guestPhone.trim();
+      if (!trimmedGuestPhone) {
+        newErrors.guest_phone = 'Vui lòng nhập số điện thoại khách nhận phòng.';
+      } else if (!isValidPhone(trimmedGuestPhone)) {
+        newErrors.guest_phone = 'Số điện thoại khách nhận phòng không hợp lệ.';
+      }
+
+      trimmedGuestEmail = guestEmail.trim();
+      if (trimmedGuestEmail && !isValidEmail(trimmedGuestEmail)) {
+        newErrors.guest_email = 'Địa chỉ email khách nhận phòng không hợp lệ.';
+      }
+    }
+
+    // 3. Validate Terms Acceptance Checkbox
+    if (!termsAccepted) {
+      newErrors.terms_accepted = 'Vui lòng đồng ý với Điều khoản và quy định đặt phòng trước khi thanh toán.';
+    }
+
+    // If validation fails, set errors and move focus to first invalid control
+    const errorKeys = Object.keys(newErrors);
+    if (errorKeys.length > 0) {
+      setErrors(newErrors);
+      const firstKey = errorKeys[0];
+      setTimeout(() => {
+        const el = document.getElementById(firstKey);
+        if (el) {
+          el.focus();
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+      return;
+    }
+
+    // Clear existing errors
+    setErrors({});
+
+    // Prepare submission payload per backend boundary requirements
+    const trimmedSpecialRequests = specialRequests.trim();
+    const preparedSubmission = {
+      booking_id: booking.id,
+      user_id: booking.userId || currentUser?.id || 101,
+      contact_name: trimmedContactName,
+      contact_email: trimmedContactEmail,
+      contact_phone: trimmedContactPhone,
+      is_booking_for_other: Boolean(isBookingForOther),
+      guest_name: isBookingForOther ? trimmedGuestName : trimmedContactName,
+      guest_phone: isBookingForOther ? trimmedGuestPhone : trimmedContactPhone,
+      guest_email: isBookingForOther ? (trimmedGuestEmail || null) : trimmedContactEmail,
+      special_requests: trimmedSpecialRequests ? trimmedSpecialRequests : null,
+      expected_arrival_time: expectedArrivalTime ? expectedArrivalTime : null,
+      payment_method: 'VNPAY'
+    };
+
+    // Note: The existing markBookingPaid API only accepts (bookingId, paymentMethod).
+    // Prepared submission data is maintained locally at checkout boundary.
     setIsProcessing(true);
 
     setTimeout(() => {
-      markBookingPaid(booking.id, paymentMethod);
+      markBookingPaid(booking.id, 'VNPAY');
       setIsProcessing(false);
       showToast('Thanh toán thành công!', 'success');
       navigate(`/booking-success?code=${encodeURIComponent(booking.bookingCode)}`);
     }, 1200);
   };
 
+  // Preparation for booking details panel
+  const nightsCount = booking.nights > 0 ? booking.nights : 1;
+  const roomCount = booking.numberOfRooms || booking.items?.length || 0;
+  const stayNights = (booking.checkinDate && booking.checkoutDate)
+    ? getStayNights(booking.checkinDate, booking.checkoutDate)
+    : [];
+
+  const hotelData = HOTELS.find(h => h.id === booking.accommodationId);
+
+  const roomsSubtotal = booking.roomSubtotal ?? (booking.items || []).reduce((sum, it) => sum + (it.roomStayPrice || 0), 0);
+  const extraGuestTotal = booking.extraGuestsSubtotal ?? (booking.items || []).reduce((sum, it) => sum + (it.extraFeeTotal || 0), 0);
+  const taxAmount = (booking.taxAmount !== null && booking.taxAmount !== undefined) ? booking.taxAmount : 0;
+  const hasServiceFee = booking.serviceFee !== null && booking.serviceFee !== undefined;
+  const serviceFee = booking.serviceFee;
+  const totalAmount = booking.totalAmount;
+
   return (
     <div className="checkout-page">
+      <style>{`
+        .checkout-page {
+          min-height: 100vh;
+          background-color: var(--color-ivory, #FFF9ED);
+          padding-bottom: 5rem;
+        }
+        .checkout-summary-col {
+          background-color: var(--color-white, #FFFFFF);
+          border-radius: var(--radius-xl, 0.75rem);
+          border: 1px solid var(--color-border, #E2E8F0);
+          padding: 1.5rem;
+          box-shadow: var(--shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        .checkout-summary-col .selected-room-row {
+          padding: 10px;
+          background-color: var(--color-ivory, #FFF9ED);
+          border-radius: var(--radius-lg, 0.5rem);
+          border: 1px solid #F1F5F9;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .checkout-summary-col .selected-room-title {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--color-navy, #233B53);
+          line-height: 1.3;
+          margin: 0;
+        }
+        .checkout-summary-col .selected-room-guests-static {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--color-slate, #64748B);
+          background-color: rgba(241, 245, 249, 0.7);
+          padding: 4px 8px;
+          border-radius: var(--radius-sm, 0.25rem);
+          display: inline-block;
+          width: fit-content;
+        }
+        .checkout-summary-col .selected-room-pricing-box {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          padding-top: 6px;
+          border-top: 1px dashed var(--color-border, #CBD5E1);
+          font-size: 11px;
+        }
+        .checkout-summary-col .selected-room-price-line {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          color: var(--color-slate, #64748B);
+        }
+        .checkout-summary-col .selected-room-price-line--total {
+          font-weight: 700;
+          color: var(--color-navy, #233B53);
+        }
+        .checkout-card-section {
+          background-color: var(--color-white, #FFFFFF);
+          border-radius: var(--radius-xl, 0.75rem);
+          border: 1px solid var(--color-border, #E2E8F0);
+          padding: 1.5rem;
+          box-shadow: var(--shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+          margin-bottom: 1.25rem;
+        }
+        .checkout-section-title {
+          font-size: 1.125rem;
+          font-weight: 700;
+          color: var(--color-navy, #233B53);
+          margin-top: 0;
+          margin-bottom: 0.25rem;
+        }
+        .checkout-section-desc {
+          font-size: 0.8125rem;
+          color: var(--color-slate, #64748B);
+          margin-top: 0;
+          margin-bottom: 1.25rem;
+          line-height: 1.5;
+        }
+        .checkout-field-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+        @media (min-width: 640px) {
+          .checkout-field-grid--2col {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        .checkout-field-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.375rem;
+        }
+        .checkout-label {
+          font-size: 0.8125rem;
+          font-weight: 700;
+          color: var(--color-navy, #233B53);
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .checkout-required-star {
+          color: #DC2626;
+          font-weight: 700;
+        }
+        .checkout-input,
+        .checkout-select,
+        .checkout-textarea {
+          width: 100%;
+          padding: 10px 14px;
+          font-size: 0.875rem;
+          color: var(--color-navy, #233B53);
+          background-color: #FFFFFF;
+          border: 1px solid var(--color-border, #CBD5E1);
+          border-radius: var(--radius-lg, 0.5rem);
+          outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+          box-sizing: border-box;
+          font-family: inherit;
+        }
+        .checkout-input:focus,
+        .checkout-select:focus,
+        .checkout-textarea:focus {
+          border-color: var(--color-sunshine, #B45309);
+          box-shadow: 0 0 0 3px rgba(245, 184, 46, 0.25);
+        }
+        .checkout-input--error,
+        .checkout-select--error,
+        .checkout-textarea--error {
+          border-color: #EF4444 !important;
+          background-color: #FEF2F2 !important;
+        }
+        .checkout-helper-text {
+          font-size: 0.75rem;
+          color: var(--color-slate, #64748B);
+          line-height: 1.4;
+          margin-top: 2px;
+        }
+        .checkout-field-error {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.75rem;
+          color: #DC2626;
+          font-weight: 500;
+          margin-top: 2px;
+        }
+        .checkout-radio-card {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 14px;
+          border-radius: var(--radius-lg, 0.5rem);
+          border: 1px solid var(--color-border, #CBD5E1);
+          background-color: #FFFFFF;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          user-select: none;
+        }
+        .checkout-radio-card:hover {
+          border-color: var(--color-border-dark, #94A3B8);
+        }
+        .checkout-radio-card--active {
+          border-color: var(--color-sunshine, #B45309);
+          background-color: rgba(255, 249, 237, 0.7);
+        }
+        .checkout-payment-card {
+          display: block;
+          padding: 14px 16px;
+          border-radius: var(--radius-xl, 0.75rem);
+          border: 1.5px solid var(--color-border, #CBD5E1);
+          background-color: #FFFFFF;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .checkout-payment-card--active {
+          border-color: var(--color-sunshine, #B45309);
+          background-color: rgba(255, 249, 237, 0.85);
+        }
+        .checkout-terms-box {
+          background-color: #F8FAFC;
+          border: 1px solid var(--color-border, #E2E8F0);
+          border-radius: var(--radius-xl, 0.75rem);
+          padding: 1rem 1.25rem;
+          margin-bottom: 1.25rem;
+        }
+      `}</style>
       
       {/* Header bar */}
       <div className="checkout-topbar">
         <div className="container-6xl" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Link to="/" className="brand-text">
-            VinaStay <span>Group</span>
+            Xác nhận đặt phòng & Thanh Toán
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--color-emerald-text)', backgroundColor: 'var(--color-emerald-bg)', padding: '4px 12px', borderRadius: 'var(--radius-full)', border: '1px solid var(--color-emerald-border)' }}>
+          {/* <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--color-emerald-text)', backgroundColor: 'var(--color-emerald-bg)', padding: '4px 12px', borderRadius: 'var(--radius-full)', border: '1px solid var(--color-emerald-border)' }}>
             <ShieldCheck style={{ width: '16px', height: '16px', color: '#059669' }} />
             <span>Thanh toán an toàn SSL 256-bit</span>
-          </div>
+          </div> */}
         </div>
       </div>
 
       <main className="container-6xl" style={{ paddingTop: '2rem' }}>
-        
-        {/* Urgency Hold Banner */}
-        <div className={`urgency-banner ${isExpired ? 'urgency-banner--expired' : 'urgency-banner--active'}`}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '1rem' }}>
-              <Clock style={{ width: '20px', height: '20px', color: 'var(--color-sunshine)', flexShrink: 0 }} />
-              <span>{isExpired ? 'Đã hết thời gian giữ phòng!' : 'Hệ thống đang giữ phòng cho quý khách!'}</span>
-            </div>
-            <p style={{ fontSize: '12px', color: 'var(--color-slate)', marginTop: '2px' }}>
-              {isExpired
-                ? 'Đơn đặt phòng này đã hết hạn giữ chỗ. Quý khách vui lòng đặt lại phòng mới.'
-                : 'Kho phòng tạm khóa trong 15 phút để bạn yên tâm thanh toán.'}
-            </p>
-          </div>
-
-          <div 
-            style={{
-              fontSize: '1.25rem',
-              fontWeight: 800,
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-lg)',
-              border: isExpired ? '1px solid #FECDD3' : '1px solid var(--color-sunshine)',
-              backgroundColor: 'var(--color-white)',
-              color: isExpired ? '#BE123C' : 'var(--color-navy)'
-            }}
-            className="tabular-nums"
-          >
-            {formatCountdown(countdown)}
-          </div>
-        </div>
-
         <div className="checkout-grid">
           
-          {/* Left: Payment Form & Methods */}
-          <section className="checkout-form-col" style={{ backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border)', padding: '1.5rem', boxShadow: 'var(--shadow-sm)' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '1rem', paddingBottom: '12px', borderBottom: '1px solid var(--color-border)' }}>
-              Chọn Phương Thức Thanh Toán
-            </h2>
-
-            <form onSubmit={handleSubmitPayment} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Left Column: Form & Information Sections */}
+          <div className="checkout-form-col">
+            <form onSubmit={handleSubmitPayment} noValidate>
               
-              {/* Payment Method 1: Credit Card */}
-              <label className={`payment-method-card ${paymentMethod === 'CREDIT_CARD' ? 'active' : ''}`}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', width: '100%' }}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="CREDIT_CARD"
-                    checked={paymentMethod === 'CREDIT_CARD'}
-                    onChange={() => setPaymentMethod('CREDIT_CARD')}
-                    style={{ marginTop: '4px', accentColor: 'var(--color-sunshine)' }}
-                  />
-                  <div style={{ flex: '1 1 0%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-navy)' }}>Thẻ Tín Dụng / Ghi Nợ Quốc Tế</span>
-                      <span style={{ fontSize: '12px', color: 'var(--color-slate)', fontWeight: 600 }}>Visa · Master · JCB</span>
-                    </div>
-                    <p style={{ fontSize: '12px', color: 'var(--color-slate)', marginTop: '2px' }}>Thanh toán bảo mật trực tiếp không phí chuyển tiền.</p>
-                  </div>
-                </div>
-              </label>
+              {/* Section A: Booking contact information */}
+              <section className="checkout-card-section">
+                <h2 className="checkout-section-title">
+                  Thông tin người đặt phòng
+                </h2>
+                <p className="checkout-section-desc">
+                  Dùng để nhận xác nhận đặt phòng và liên hệ về booking.
+                </p>
 
-              {/* Credit Card Inputs */}
-              {paymentMethod === 'CREDIT_CARD' && (
-                <div style={{ padding: '1rem', backgroundColor: 'rgba(255, 249, 237, 0.7)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div>
-                    <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)', display: 'block', marginBottom: '4px' }}>Số thẻ</label>
+                <div className="checkout-field-grid">
+                  {/* contact_name */}
+                  <div className="checkout-field-group">
+                    <label htmlFor="contact_name" className="checkout-label">
+                      <span>Họ và tên</span>
+                      <span className="checkout-required-star" aria-hidden="true">*</span>
+                    </label>
                     <input
                       type="text"
-                      defaultValue="4123 8888 9999 6868"
-                      className="auth-input"
-                      placeholder="4123 0000 0000 0000"
+                      id="contact_name"
+                      name="contact_name"
+                      autoComplete="name"
+                      value={contactName}
+                      onChange={(e) => handleFieldChange('contact_name', setContactName, e.target.value)}
+                      placeholder="Ví dụ: Nguyễn Văn An"
+                      className={`checkout-input ${errors.contact_name ? 'checkout-input--error' : ''}`}
+                      aria-required="true"
+                      aria-invalid={Boolean(errors.contact_name)}
+                      aria-describedby={errors.contact_name ? 'contact_name_error' : undefined}
                     />
+                    {errors.contact_name && (
+                      <div id="contact_name_error" className="checkout-field-error">
+                        <AlertCircle style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                        <span>{errors.contact_name}</span>
+                      </div>
+                    )}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-                    <div>
-                      <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)', display: 'block', marginBottom: '4px' }}>Tên chủ thẻ</label>
+
+                  <div className="checkout-field-grid checkout-field-grid--2col">
+                    {/* contact_email */}
+                    <div className="checkout-field-group">
+                      <label htmlFor="contact_email" className="checkout-label">
+                        <span>Email nhận xác nhận</span>
+                        <span className="checkout-required-star" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        id="contact_email"
+                        name="contact_email"
+                        autoComplete="email"
+                        value={contactEmail}
+                        onChange={(e) => handleFieldChange('contact_email', setContactEmail, e.target.value)}
+                        placeholder="email@example.com"
+                        className={`checkout-input ${errors.contact_email ? 'checkout-input--error' : ''}`}
+                        aria-required="true"
+                        aria-invalid={Boolean(errors.contact_email)}
+                        aria-describedby={errors.contact_email ? 'contact_email_error' : undefined}
+                      />
+                      {errors.contact_email && (
+                        <div id="contact_email_error" className="checkout-field-error">
+                          <AlertCircle style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                          <span>{errors.contact_email}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* contact_phone */}
+                    <div className="checkout-field-group">
+                      <label htmlFor="contact_phone" className="checkout-label">
+                        <span>Số điện thoại</span>
+                        <span className="checkout-required-star" aria-hidden="true">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        id="contact_phone"
+                        name="contact_phone"
+                        autoComplete="tel"
+                        value={contactPhone}
+                        onChange={(e) => handleFieldChange('contact_phone', setContactPhone, e.target.value)}
+                        placeholder="Ví dụ: 0912345678 hoặc +84 912 345 678"
+                        className={`checkout-input ${errors.contact_phone ? 'checkout-input--error' : ''}`}
+                        aria-required="true"
+                        aria-invalid={Boolean(errors.contact_phone)}
+                        aria-describedby={errors.contact_phone ? 'contact_phone_error' : undefined}
+                      />
+                      {errors.contact_phone && (
+                        <div id="contact_phone_error" className="checkout-field-error">
+                          <AlertCircle style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                          <span>{errors.contact_phone}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Section B: Lead guest information */}
+              <section className="checkout-card-section">
+                <h2 className="checkout-section-title">
+                  Khách đại diện nhận phòng
+                </h2>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: isBookingForOther ? '1.25rem' : 0 }}>
+                  <label
+                    htmlFor="guest_option_self"
+                    className={`checkout-radio-card ${!isBookingForOther ? 'checkout-radio-card--active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      id="guest_option_self"
+                      name="guest_option"
+                      value="self"
+                      checked={!isBookingForOther}
+                      onChange={() => handleGuestOptionChange(false)}
+                      style={{ accentColor: 'var(--color-sunshine, #B45309)' }}
+                    />
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-navy, #233B53)' }}>
+                      Tôi là khách đại diện nhận phòng
+                    </span>
+                  </label>
+
+                  <label
+                    htmlFor="guest_option_other"
+                    className={`checkout-radio-card ${isBookingForOther ? 'checkout-radio-card--active' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      id="guest_option_other"
+                      name="guest_option"
+                      value="other"
+                      checked={isBookingForOther}
+                      onChange={() => handleGuestOptionChange(true)}
+                      style={{ accentColor: 'var(--color-sunshine, #B45309)' }}
+                    />
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-navy, #233B53)' }}>
+                      Tôi đặt phòng cho người khác
+                    </span>
+                  </label>
+                </div>
+
+                {/* Additional inputs when booking for another person */}
+                {isBookingForOther && (
+                  <div className="checkout-field-grid" style={{ paddingTop: '0.5rem', borderTop: '1px solid var(--color-border, #E2E8F0)' }}>
+                    {/* guest_name */}
+                    <div className="checkout-field-group">
+                      <label htmlFor="guest_name" className="checkout-label">
+                        <span>Họ tên khách đại diện nhận phòng</span>
+                        <span className="checkout-required-star" aria-hidden="true">*</span>
+                      </label>
                       <input
                         type="text"
-                        defaultValue="NGUYEN VAN AN"
-                        className="auth-input"
-                        style={{ textTransform: 'uppercase' }}
+                        id="guest_name"
+                        name="guest_name"
+                        autoComplete="name"
+                        value={guestName}
+                        onChange={(e) => handleFieldChange('guest_name', setGuestName, e.target.value)}
+                        placeholder="Nhập họ và tên khách nhận phòng"
+                        className={`checkout-input ${errors.guest_name ? 'checkout-input--error' : ''}`}
+                        aria-required="true"
+                        aria-invalid={Boolean(errors.guest_name)}
+                        aria-describedby={errors.guest_name ? 'guest_name_error guest_name_helper' : 'guest_name_helper'}
                       />
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)', display: 'block', marginBottom: '4px' }}>Hết hạn</label>
-                        <input
-                          type="text"
-                          defaultValue="12/28"
-                          className="auth-input"
-                        />
+                      <div id="guest_name_helper" className="checkout-helper-text">
+                        Họ tên cần khớp với giấy tờ dùng khi nhận phòng.
                       </div>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)', display: 'block', marginBottom: '4px' }}>CVV</label>
+                      {errors.guest_name && (
+                        <div id="guest_name_error" className="checkout-field-error">
+                          <AlertCircle style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                          <span>{errors.guest_name}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="checkout-field-grid checkout-field-grid--2col">
+                      {/* guest_phone */}
+                      <div className="checkout-field-group">
+                        <label htmlFor="guest_phone" className="checkout-label">
+                          <span>Số điện thoại khách nhận phòng</span>
+                          <span className="checkout-required-star" aria-hidden="true">*</span>
+                        </label>
                         <input
-                          type="password"
-                          defaultValue="888"
-                          maxLength={4}
-                          className="auth-input"
+                          type="tel"
+                          id="guest_phone"
+                          name="guest_phone"
+                          autoComplete="tel"
+                          value={guestPhone}
+                          onChange={(e) => handleFieldChange('guest_phone', setGuestPhone, e.target.value)}
+                          placeholder="Số điện thoại khách nhận phòng"
+                          className={`checkout-input ${errors.guest_phone ? 'checkout-input--error' : ''}`}
+                          aria-required="true"
+                          aria-invalid={Boolean(errors.guest_phone)}
+                          aria-describedby={errors.guest_phone ? 'guest_phone_error' : undefined}
                         />
+                        {errors.guest_phone && (
+                          <div id="guest_phone_error" className="checkout-field-error">
+                            <AlertCircle style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                            <span>{errors.guest_phone}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* guest_email */}
+                      <div className="checkout-field-group">
+                        <label htmlFor="guest_email" className="checkout-label">
+                          <span>Email khách nhận phòng</span>
+                        </label>
+                        <input
+                          type="email"
+                          id="guest_email"
+                          name="guest_email"
+                          autoComplete="email"
+                          value={guestEmail}
+                          onChange={(e) => handleFieldChange('guest_email', setGuestEmail, e.target.value)}
+                          placeholder="email@example.com (không bắt buộc)"
+                          className={`checkout-input ${errors.guest_email ? 'checkout-input--error' : ''}`}
+                          aria-invalid={Boolean(errors.guest_email)}
+                          aria-describedby={errors.guest_email ? 'guest_email_error guest_email_helper' : 'guest_email_helper'}
+                        />
+                        <div id="guest_email_helper" className="checkout-helper-text">
+                          Nhập email để khách nhận phòng cũng nhận được xác nhận đặt phòng.
+                        </div>
+                        {errors.guest_email && (
+                          <div id="guest_email_error" className="checkout-field-error">
+                            <AlertCircle style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                            <span>{errors.guest_email}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </section>
 
-              {/* Payment Method 2: Domestic ATM */}
-              <label className={`payment-method-card ${paymentMethod === 'DOMESTIC_ATM' ? 'active' : ''}`}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', width: '100%' }}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="DOMESTIC_ATM"
-                    checked={paymentMethod === 'DOMESTIC_ATM'}
-                    onChange={() => setPaymentMethod('DOMESTIC_ATM')}
-                    style={{ marginTop: '4px', accentColor: 'var(--color-sunshine)' }}
-                  />
-                  <div style={{ flex: '1 1 0%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-navy)' }}>Thẻ ATM Nội Địa / Internet Banking</span>
-                      <span style={{ fontSize: '12px', color: 'var(--color-slate)', fontWeight: 600 }}>Napas</span>
+              {/* Section C: Additional information */}
+              <section className="checkout-card-section">
+                <h2 className="checkout-section-title">
+                  Thông tin bổ sung
+                </h2>
+
+                <div className="checkout-field-grid">
+                  {/* special_requests */}
+                  <div className="checkout-field-group">
+                    <label htmlFor="special_requests" className="checkout-label">
+                      <span>Yêu cầu đặc biệt</span>
+                    </label>
+                    <textarea
+                      id="special_requests"
+                      name="special_requests"
+                      maxLength={2000}
+                      rows={3}
+                      value={specialRequests}
+                      onChange={(e) => setSpecialRequests(e.target.value)}
+                      placeholder="Ví dụ: ưu tiên phòng gần nhau, tầng thấp hoặc thông báo nhu cầu hỗ trợ…"
+                      className="checkout-textarea"
+                      aria-describedby="special_requests_helper"
+                    />
+                    <div id="special_requests_helper" className="checkout-helper-text">
+                      Yêu cầu đặc biệt tùy thuộc khả năng đáp ứng của chỗ nghỉ và có thể phát sinh phụ phí. Yêu cầu chưa được đảm bảo cho đến khi chỗ nghỉ xác nhận.
                     </div>
-                    <p style={{ fontSize: '12px', color: 'var(--color-slate)', marginTop: '2px' }}>Vietcombank, Techcombank, BIDV, MBBank...</p>
+                  </div>
+
+                  {/* expected_arrival_time */}
+                  <div className="checkout-field-group">
+                    <label htmlFor="expected_arrival_time" className="checkout-label">
+                      <span>Giờ đến dự kiến</span>
+                    </label>
+                    <select
+                      id="expected_arrival_time"
+                      name="expected_arrival_time"
+                      value={expectedArrivalTime}
+                      onChange={(e) => setExpectedArrivalTime(e.target.value)}
+                      className="checkout-select"
+                      aria-describedby="expected_arrival_time_helper"
+                    >
+                      <option value="">Chưa xác định</option>
+                      {ARRIVAL_TIME_WINDOWS.map((windowStr) => (
+                        <option key={windowStr} value={windowStr}>
+                          {windowStr}
+                        </option>
+                      ))}
+                    </select>
+                    <div id="expected_arrival_time_helper" className="checkout-helper-text">
+                      Giờ đến dự kiến giúp chỗ nghỉ chuẩn bị đón tiếp, không đảm bảo nhận phòng sớm. Nếu đến sau nửa đêm, vui lòng liên hệ chỗ nghỉ để xác nhận.
+                    </div>
                   </div>
                 </div>
-              </label>
+              </section>
 
-              {/* Payment Method 3: VNPAY QR */}
-              <label className={`payment-method-card ${paymentMethod === 'VNPAY_QR' ? 'active' : ''}`}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', width: '100%' }}>
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="VNPAY_QR"
-                    checked={paymentMethod === 'VNPAY_QR'}
-                    onChange={() => setPaymentMethod('VNPAY_QR')}
-                    style={{ marginTop: '4px', accentColor: 'var(--color-sunshine)' }}
-                  />
-                  <div style={{ flex: '1 1 0%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-navy)' }}>Quét Mã VNPAY-QR / VietQR</span>
-                      <span style={{ fontSize: '12px', color: 'var(--color-slate)', fontWeight: 600 }}>⚡ Tức thì</span>
+              {/* Section D: Payment method */}
+              <section className="checkout-card-section">
+                <h2 className="checkout-section-title">
+                  Phương thức thanh toán
+                </h2>
+
+                <div className="checkout-payment-options">
+                  <label
+                    htmlFor="payment_vnpay"
+                    className={`checkout-payment-card ${paymentMethod === 'VNPAY' ? 'checkout-payment-card--active' : ''}`}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', width: '100%' }}>
+                      <input
+                        type="radio"
+                        id="payment_vnpay"
+                        name="paymentMethod"
+                        value="VNPAY"
+                        checked={paymentMethod === 'VNPAY'}
+                        onChange={() => setPaymentMethod('VNPAY')}
+                        style={{ marginTop: '3px', accentColor: 'var(--color-sunshine, #B45309)', width: '18px', height: '18px' }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                          <span style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--color-navy, #233B53)' }}>
+                            VNPay
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: '#0369A1',
+                              backgroundColor: '#E0F2FE',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              letterSpacing: '0.02em'
+                            }}
+                          >
+                            Cổng thanh toán quốc gia
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '12px', color: 'var(--color-slate, #64748B)', marginTop: '4px', lineHeight: 1.5, margin: '4px 0 0 0' }}>
+                          Bạn sẽ được chuyển đến cổng thanh toán VNPay để hoàn tất thanh toán.
+                        </p>
+                      </div>
                     </div>
-                    <p style={{ fontSize: '12px', color: 'var(--color-slate)', marginTop: '2px' }}>Mở ứng dụng ngân hàng quét mã thanh toán không cần nhập thẻ.</p>
-                  </div>
+                  </label>
                 </div>
-              </label>
+              </section>
 
-              {/* Payment Method 4: MoMo */}
-              <label className={`payment-method-card ${paymentMethod === 'MOMO' ? 'active' : ''}`}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', width: '100%' }}>
+              {/* Terms Acceptance Checkbox */}
+              <div className="checkout-terms-box">
+                <label
+                  htmlFor="terms_accepted"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    color: 'var(--color-navy, #233B53)',
+                    lineHeight: 1.5,
+                    userSelect: 'none'
+                  }}
+                >
                   <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="MOMO"
-                    checked={paymentMethod === 'MOMO'}
-                    onChange={() => setPaymentMethod('MOMO')}
-                    style={{ marginTop: '4px', accentColor: 'var(--color-sunshine)' }}
+                    type="checkbox"
+                    id="terms_accepted"
+                    name="terms_accepted"
+                    checked={termsAccepted}
+                    onChange={(e) => {
+                      setTermsAccepted(e.target.checked);
+                      if (e.target.checked && errors.terms_accepted) {
+                        setErrors(prev => {
+                          const next = { ...prev };
+                          delete next.terms_accepted;
+                          return next;
+                        });
+                      }
+                    }}
+                    style={{
+                      marginTop: '3px',
+                      width: '18px',
+                      height: '18px',
+                      accentColor: 'var(--color-sunshine, #B45309)',
+                      flexShrink: 0,
+                      cursor: 'pointer'
+                    }}
+                    aria-invalid={Boolean(errors.terms_accepted)}
+                    aria-describedby={errors.terms_accepted ? 'terms_accepted_error' : undefined}
                   />
-                  <div style={{ flex: '1 1 0%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-navy)' }}>Ví Điện Tử MoMo / ZaloPay</span>
-                      <span style={{ fontSize: '12px', color: 'var(--color-slate)', fontWeight: 600 }}>MoMo</span>
-                    </div>
-                    <p style={{ fontSize: '12px', color: 'var(--color-slate)', marginTop: '2px' }}>Xác nhận thanh toán 1 chạm trên ứng dụng ví.</p>
+                  <span>
+                    Tôi đã đọc và đồng ý với{' '}
+                    <Link
+                      to="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        color: '#0284C7',
+                        fontWeight: 600,
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      Điều khoản và quy định đặt phòng
+                    </Link>
+                    .
+                  </span>
+                </label>
+                {errors.terms_accepted && (
+                  <div id="terms_accepted_error" className="checkout-field-error" style={{ marginTop: '6px', marginLeft: '28px' }}>
+                    <AlertCircle style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                    <span>{errors.terms_accepted}</span>
                   </div>
-                </div>
-              </label>
-
-              {/* Simulation Note */}
-              <div style={{ padding: '12px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 'var(--radius-lg)', fontSize: '12px', color: 'var(--color-slate)', lineHeight: 1.6 }}>
-                <strong>Chế độ thử nghiệm:</strong> Thao tác thanh toán sẽ mô phỏng giao dịch thành công và cập nhật trạng thái đơn thành <strong>PAID</strong> mà không trừ tiền thật.
+                )}
               </div>
 
               {/* Submit Payment CTA */}
@@ -265,7 +922,14 @@ export default function CheckoutPage() {
                 type="submit"
                 disabled={isExpired || isProcessing}
                 className="btn-primary btn-primary--full"
-                style={{ padding: '14px 20px', fontSize: '1rem', fontWeight: 800, borderRadius: 'var(--radius-lg)' }}
+                style={{
+                  padding: '14px 20px',
+                  fontSize: '1rem',
+                  fontWeight: 800,
+                  borderRadius: 'var(--radius-lg, 0.5rem)',
+                  cursor: (isExpired || isProcessing) ? 'not-allowed' : 'pointer',
+                  opacity: (isExpired || isProcessing) ? 0.7 : 1
+                }}
               >
                 {isProcessing ? (
                   <span>Đang xử lý thanh toán an toàn...</span>
@@ -274,13 +938,18 @@ export default function CheckoutPage() {
                 )}
               </button>
             </form>
-          </section>
+          </div>
 
-          {/* Right: Order Summary Breakdown */}
-          <aside className="checkout-summary-col" style={{ backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border)', padding: '1.5rem', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-navy)', paddingBottom: '12px', borderBottom: '1px solid var(--color-border)' }}>
-              Chi Tiết Đơn Đặt Phòng
-            </h3>
+          {/* Right Column: Order Summary Breakdown */}
+          <aside className="checkout-summary-col">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--color-border)' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-navy)', margin: 0 }}>
+                Chi tiết đơn đặt phòng
+              </h3>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-slate)' }}>
+                {roomCount} phòng đã chọn
+              </span>
+            </div>
 
             <div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-sunshine)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -303,47 +972,237 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Individual Room Items */}
-            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)', display: 'block' }}>Cấu hình từng phòng:</span>
-              {booking.items && booking.items.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', padding: '4px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <div>
-                    <strong style={{ color: 'var(--color-navy)' }}>Phòng {idx + 1}: {item.roomName}</strong>
-                    <div style={{ fontSize: '11px', color: 'var(--color-slate)' }}>{item.adults} người lớn, {item.children} trẻ em</div>
+            {/* Individual Selected Rooms List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }}>
+              {(booking.items || []).map((item, idx) => {
+                // Sequence per room type, e.g. "Deluxe King Hướng Sông - Phòng 1"
+                const typeIndex = (booking.items || [])
+                  .slice(0, idx + 1)
+                  .filter(r => (r.roomTypeId || r.id) === (item.roomTypeId || item.id))
+                  .length;
+
+                // Fallback room definition from HOTELS data if needed
+                const roomDef = hotelData?.rooms?.find(r => r.id === (item.roomTypeId || item.id));
+
+                const basePrice = item.basePrice || roomDef?.basePrice || (nightsCount > 0 && item.roomStayPrice ? Math.round(item.roomStayPrice / nightsCount) : 1500000);
+                const weekendPrice = item.weekendPrice || roomDef?.weekendPrice || basePrice;
+                const holidayPrice = item.holidayPrice || roomDef?.holidayPrice || basePrice;
+
+                const includedAdults = item.includedAdults ?? roomDef?.includedAdults ?? 2;
+                const includedChildren = item.includedChildren ?? roomDef?.includedChildren ?? 1;
+                const extraAdultFee = item.extraAdultFee || roomDef?.extraAdultFee || 300000;
+                const extraChildFee = item.extraChildFee || roomDef?.extraChildFee || 150000;
+
+                // Nightly rates for this room
+                const nightlyRates = stayNights.map(nightDate => {
+                  let price = basePrice;
+                  if (isSpecialHoliday(nightDate)) {
+                    price = holidayPrice;
+                  } else if (isWeekendNight(nightDate)) {
+                    price = weekendPrice;
+                  }
+                  const day = nightDate.getDay();
+                  const weekdayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                  const dateFormatted = `${String(nightDate.getDate()).padStart(2, '0')}/${String(nightDate.getMonth() + 1).padStart(2, '0')}/${nightDate.getFullYear()}`;
+                  return {
+                    date: nightDate,
+                    label: `${weekdayMap[day]} (${dateFormatted})`,
+                    price,
+                    amountStr: formatVND(price)
+                  };
+                });
+
+                const calculatedStayPrice = nightlyRates.length > 0
+                  ? nightlyRates.reduce((sum, r) => sum + r.price, 0)
+                  : basePrice * nightsCount;
+                const roomStayPrice = item.roomStayPrice || calculatedStayPrice;
+
+                // Extra guest charges for this specific physical room
+                const extraAdults = Math.max(0, (item.adults || 1) - includedAdults);
+                const extraChildren = Math.max(0, (item.children || 0) - includedChildren);
+
+                const extraAdultTotal = extraAdults * extraAdultFee * nightsCount;
+                const extraChildTotal = extraChildren * extraChildFee * nightsCount;
+                const roomTotal = roomStayPrice + extraAdultTotal + extraChildTotal;
+
+                // Detailed nightly surcharge breakdowns
+                const adultBreakdown = stayNights.map(nightDate => {
+                  const day = nightDate.getDay();
+                  const weekdayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                  const dateFormatted = `${String(nightDate.getDate()).padStart(2, '0')}/${String(nightDate.getMonth() + 1).padStart(2, '0')}/${nightDate.getFullYear()}`;
+                  const nightlySubtotal = extraAdultFee * extraAdults;
+                  return {
+                    label: `${weekdayMap[day]} (${dateFormatted})`,
+                    calculationStr: `${formatVND(extraAdultFee)}/người × ${extraAdults} người = ${formatVND(nightlySubtotal)}`,
+                    amountStr: formatVND(nightlySubtotal)
+                  };
+                });
+
+                const childBreakdown = stayNights.map(nightDate => {
+                  const day = nightDate.getDay();
+                  const weekdayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+                  const dateFormatted = `${String(nightDate.getDate()).padStart(2, '0')}/${String(nightDate.getMonth() + 1).padStart(2, '0')}/${nightDate.getFullYear()}`;
+                  const nightlySubtotal = extraChildFee * extraChildren;
+                  return {
+                    label: `${weekdayMap[day]} (${dateFormatted})`,
+                    calculationStr: `${formatVND(extraChildFee)}/trẻ em × ${extraChildren} trẻ em = ${formatVND(nightlySubtotal)}`,
+                    amountStr: formatVND(nightlySubtotal)
+                  };
+                });
+
+                return (
+                  <div key={item.clientId || idx} className="selected-room-row">
+                    <h4 className="selected-room-title">
+                      {item.roomName} - Phòng {typeIndex}
+                    </h4>
+
+                    {/* Static guest information: e.g. “2 người lớn, 1 trẻ em” */}
+                    <div className="selected-room-guests-static">
+                      {item.adults || 1} người lớn, {item.children || 0} trẻ em
+                    </div>
+
+                    {/* Pricing Details for this single room */}
+                    <div className="selected-room-pricing-box">
+                      {/* Base room price across stay */}
+                      <div className="selected-room-price-line selected-room-price-line--total" style={{ alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>Tiền phòng {nightsCount} đêm:</span>
+                          <PriceBreakdownTooltip
+                            title="Chi tiết tiền phòng"
+                            items={nightlyRates}
+                            totalLabel="Tổng tiền phòng"
+                            totalAmount={roomStayPrice}
+                            ariaLabel={`Xem chi tiết tiền phòng ${item.roomName} - Phòng ${typeIndex}`}
+                          />
+                        </div>
+                        <span className="tabular-nums" style={{ color: 'var(--color-navy)', fontWeight: 700 }}>
+                          {formatVND(roomStayPrice)}
+                        </span>
+                      </div>
+
+                      {/* Phụ thu người lớn */}
+                      <div
+                        className="selected-room-price-line"
+                        style={{
+                          alignItems: 'center',
+                          color: extraAdultTotal > 0 ? '#B45309' : 'var(--color-slate)',
+                          fontSize: '11px',
+                          marginTop: '4px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>Phụ thu người lớn:</span>
+                          <PriceBreakdownTooltip
+                            title="Chi tiết phụ thu người lớn"
+                            subtitle={`Số người lớn tính phụ thu: ${extraAdults}`}
+                            emptyNotice={
+                              extraAdults === 0
+                                ? 'Số người lớn nằm trong tiêu chuẩn đã bao gồm.'
+                                : undefined
+                            }
+                            items={extraAdults > 0 ? adultBreakdown : []}
+                            totalLabel="Tổng phụ thu người lớn"
+                            totalAmount={extraAdultTotal}
+                            ariaLabel={`Xem chi tiết phụ thu người lớn ${item.roomName} - Phòng ${typeIndex}`}
+                          />
+                        </div>
+                        <span className="tabular-nums" style={{ fontWeight: 600 }}>
+                          {extraAdultTotal > 0 ? `+${formatVND(extraAdultTotal)}` : '0 ₫'}
+                        </span>
+                      </div>
+
+                      {/* Phụ thu trẻ em */}
+                      <div
+                        className="selected-room-price-line"
+                        style={{
+                          alignItems: 'center',
+                          color: extraChildTotal > 0 ? '#B45309' : 'var(--color-slate)',
+                          fontSize: '11px',
+                          marginTop: '2px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>Phụ thu trẻ em:</span>
+                          <PriceBreakdownTooltip
+                            title="Chi tiết phụ thu trẻ em"
+                            subtitle={`Số trẻ em tính phụ thu: ${extraChildren}`}
+                            emptyNotice={
+                              extraChildren === 0
+                                ? 'Số trẻ em nằm trong tiêu chuẩn đã bao gồm.'
+                                : undefined
+                            }
+                            items={extraChildren > 0 ? childBreakdown : []}
+                            totalLabel="Tổng phụ thu trẻ em"
+                            totalAmount={extraChildTotal}
+                            ariaLabel={`Xem chi tiết phụ thu trẻ em ${item.roomName} - Phòng ${typeIndex}`}
+                          />
+                        </div>
+                        <span className="tabular-nums" style={{ fontWeight: 600 }}>
+                          {extraChildTotal > 0 ? `+${formatVND(extraChildTotal)}` : '0 ₫'}
+                        </span>
+                      </div>
+
+                      {/* Tổng phòng */}
+                      <div
+                        className="selected-room-price-line selected-room-price-line--total"
+                        style={{
+                          alignItems: 'center',
+                          marginTop: '4px',
+                          paddingTop: '4px',
+                          borderTop: '1px dashed #E2E8F0'
+                        }}
+                      >
+                        <span>Tổng phòng:</span>
+                        <span className="tabular-nums" style={{ color: 'var(--color-navy)', fontWeight: 800 }}>
+                          {formatVND(roomTotal)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">
-                    {formatVND(item.roomStayPrice + (item.extraFeeTotal || 0))}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Price Calculations */}
             <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-slate)' }}>
-                <span>Tiền phòng:</span>
-                <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">{formatVND(booking.roomSubtotal)}</span>
+                <span>Tiền phòng ({nightsCount} đêm):</span>
+                <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">{formatVND(roomsSubtotal)}</span>
               </div>
 
-              {booking.extraGuestsSubtotal > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-slate)' }}>
+                <span>Phụ thu khách:</span>
+                <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">
+                  {extraGuestTotal > 0 ? `+${formatVND(extraGuestTotal)}` : formatVND(extraGuestTotal)}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-slate)' }}>
+                <span>Thuế:</span>
+                <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">{formatVND(taxAmount)}</span>
+              </div>
+
+              {hasServiceFee && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-slate)' }}>
-                  <span>Phụ thu khách/trẻ em thêm:</span>
-                  <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">+{formatVND(booking.extraGuestsSubtotal)}</span>
+                  <span>Phí dịch vụ:</span>
+                  <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">{formatVND(serviceFee)}</span>
                 </div>
               )}
 
+              {/* Discount rows remain commented out / hidden as in reference */}
+              {/*
               {booking.discountAmount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-emerald-text)', fontWeight: 600, backgroundColor: 'var(--color-emerald-bg)', padding: '4px 8px', borderRadius: 'var(--radius-sm)' }}>
                   <span>{booking.promotionName || 'Ưu đãi áp dụng'}:</span>
                   <span className="tabular-nums">-{formatVND(booking.discountAmount)}</span>
                 </div>
               )}
+              */}
 
-              <div style={{ paddingTop: '12px', borderTop: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-navy)' }}>Tổng thanh toán:</span>
+              <div style={{ paddingTop: '8px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <span style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--color-navy)' }}>Tổng cộng:</span>
                 <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-navy)' }} className="tabular-nums">
-                  {formatVND(booking.totalAmount)}
+                  {formatVND(totalAmount)}
                 </span>
               </div>
             </div>

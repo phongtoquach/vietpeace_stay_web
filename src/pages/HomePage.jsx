@@ -55,10 +55,10 @@ export default function HomePage() {
             Mô hình lưu trú đa dạng
           </span>
           <h2 className="home-section-title">
-            Hệ Sinh Thái Nghỉ Dưỡng Trực Thuộc VinaStay
+            Hệ Sinh Thái Nghỉ Dưỡng Trực Thuộc VietPeace Stay
           </h2>
           <p className="home-section-subtitle">
-            Mọi cơ sở lưu trú đều thuộc sở hữu trực tiếp của Tập đoàn VinaStay, cam kết tiêu chuẩn dịch vụ đồng nhất và chất lượng quản lý cao cấp.
+            Mọi cơ sở lưu trú đều thuộc sở hữu trực tiếp của Tập đoàn VietPeace Stay, cam kết tiêu chuẩn dịch vụ đồng nhất và chất lượng quản lý cao cấp.
           </p>
         </div>
 
@@ -263,7 +263,7 @@ export default function HomePage() {
                 Quyền lợi đặt phòng trực tiếp
               </span>
               <h2 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.2, marginBottom: '16px' }}>
-                Vì Sao Bạn Nên Đặt Phòng Tại VinaStay Group?
+                Vì Sao Bạn Nên Đặt Phòng Tại VietPeace Stay Group?
               </h2>
               <p style={{ color: '#CBD5E1', fontSize: '1rem', lineHeight: 1.6, marginBottom: '2rem' }}>
                 Tập đoàn trực tiếp sở hữu và quản lý từng khách sạn, bảo đảm quyền lợi tối đa cho khách hàng không qua bất kỳ đại lý trung gian nào.

@@ -15,7 +15,7 @@ export default function Footer() {
                 V
               </div>
               <div className="brand-text" style={{ color: 'var(--color-white)' }}>
-                VinaStay <span>Group</span>
+                VietPeace <span>Stay</span>
               </div>
             </Link>
             <p style={{ fontSize: '0.875rem', color: '#94A3B8', lineHeight: 1.6 }}>
@@ -48,21 +48,6 @@ export default function Footer() {
                   Homestay Sinh Thái Bản Địa
                 </Link>
               </li>
-              <li>
-                <Link to="/search?locationId=1" className="footer-link">
-                  Chi nhánh TP. Hồ Chí Minh
-                </Link>
-              </li>
-              <li>
-                <Link to="/search?locationId=3" className="footer-link">
-                  Chi nhánh Hạ Long, Quảng Ninh
-                </Link>
-              </li>
-              <li>
-                <Link to="/search?locationId=5" className="footer-link">
-                  Chi nhánh An Giang (Mekong)
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -74,7 +59,7 @@ export default function Footer() {
             <ul className="footer-link-list">
               <li>
                 <Link to="/about" className="footer-link">
-                  Về Tập Đoàn VinaStay
+                  Về Tập Đoàn VietPeace Stay
                 </Link>
               </li>
               <li>
@@ -112,11 +97,11 @@ export default function Footer() {
               </div>
               <div>
                 <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block' }}>Email CSKH Doanh Nghiệp</span>
-                <span style={{ color: 'var(--color-white)' }}>reservation@vinastaygroup.vn</span>
+                <span style={{ color: 'var(--color-white)' }}>reservation@vietpeacsestay.vn</span>
               </div>
               <div style={{ paddingTop: '8px', borderTop: '1px solid rgba(51, 65, 85, 0.6)' }}>
                 <span style={{ fontSize: '0.75rem', color: '#64748B', display: 'block' }}>Trụ sở chính tập đoàn</span>
-                <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>Tòa nhà VinaStay Tower, 15 Tôn Đức Thắng, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</span>
+                <span style={{ fontSize: '0.75rem', color: '#CBD5E1' }}>Tòa nhà VietPeace Stay Tower, 15 Tôn Đức Thắng, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</span>
               </div>
             </div>
           </div>
@@ -126,7 +111,7 @@ export default function Footer() {
         {/* Bottom Legal bar */}
         <div className="footer-bottom">
           <div>
-            © 2026 VinaStay Hospitality Group. Tất cả các quyền được bảo lưu.
+            © 2026 VietPeace Stay Group. Tất cả các quyền được bảo lưu.
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <Link to="/terms" className="footer-link" style={{ fontSize: '0.75rem' }}>Điều khoản</Link>

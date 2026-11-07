@@ -1,5 +1,5 @@
 /**
- * VinaStay Hospitality Group - Hotel & Accommodation Data (JavaScript)
+ * VietPeace Stay Hospitality Group - Hotel & Accommodation Data (JavaScript)
  * Real-world commercial structure ready for future ExpressJS + SQL Server backend.
  */
 
@@ -7,7 +7,7 @@ export const HERO_SLIDES = [
   {
     id: 1,
     headline: "Khám Phá Kỳ Nghỉ Đẳng Cấp Khắp Việt Nam",
-    description: "Hệ thống 25+ khách sạn, resort ven biển và homestay sinh thái do Tập đoàn VinaStay trực tiếp sở hữu và vận hành.",
+    description: "Hệ thống 25+ khách sạn, resort ven biển và homestay sinh thái do Tập đoàn VietPeace Stay trực tiếp sở hữu và vận hành.",
     badge: "Ưu Đãi Trực Tiếp Từ Tập Đoàn",
     cta: "Khám Phá Chỗ Nghỉ",
     link: "/search",
@@ -52,19 +52,19 @@ export const AUTOCOMPLETE_OPTIONS = [
   { id: 52, parentId: 5, type: 'destination', name: 'Châu Đốc', parent: 'An Giang, Việt Nam' },
   { id: 53, parentId: 5, type: 'destination', name: 'Long Xuyên', parent: 'An Giang, Việt Nam' },
   
-  // Specific accommodations owned by VinaStay Group
-  { id: 101, locationId: 1, type: 'accommodation', name: 'VinaStay Saigon Riverside Hotel', locationName: 'Quận 1, TP. Hồ Chí Minh' },
-  { id: 102, locationId: 3, type: 'accommodation', name: 'VinaStay Hạ Long Heritage Resort', locationName: 'Bán đảo Tuần Châu, Hạ Long' },
-  { id: 103, locationId: 51, type: 'accommodation', name: 'VinaStay Tri Tôn Palm Homestay', locationName: 'Tri Tôn, An Giang' },
-  { id: 104, locationId: 4, type: 'accommodation', name: 'VinaStay Đà Nẵng Ocean Luxury Resort', locationName: 'Ngũ Hành Sơn, Đà Nẵng' },
-  { id: 105, locationId: 2, type: 'accommodation', name: 'VinaStay Hà Nội Boutique Hotel', locationName: 'Hoàn Kiếm, Hà Nội' },
-  { id: 106, locationId: 52, type: 'accommodation', name: 'VinaStay Châu Đốc Riverside Hotel', locationName: 'Châu Đốc, An Giang' }
+  // Specific accommodations owned by VietPeace Stay Group
+  { id: 101, locationId: 1, type: 'accommodation', name: 'VietPeace Stay Saigon Riverside Hotel', locationName: 'Quận 1, TP. Hồ Chí Minh' },
+  { id: 102, locationId: 3, type: 'accommodation', name: 'VietPeace Stay Hạ Long Heritage Resort', locationName: 'Bán đảo Tuần Châu, Hạ Long' },
+  { id: 103, locationId: 51, type: 'accommodation', name: 'VietPeace Stay Tri Tôn Palm Homestay', locationName: 'Tri Tôn, An Giang' },
+  { id: 104, locationId: 4, type: 'accommodation', name: 'VietPeace Stay Đà Nẵng Ocean Luxury Resort', locationName: 'Ngũ Hành Sơn, Đà Nẵng' },
+  { id: 105, locationId: 2, type: 'accommodation', name: 'VietPeace Stay Hà Nội Boutique Hotel', locationName: 'Hoàn Kiếm, Hà Nội' },
+  { id: 106, locationId: 52, type: 'accommodation', name: 'VietPeace Stay Châu Đốc Riverside Hotel', locationName: 'Châu Đốc, An Giang' }
 ];
 
 export const HOTELS = ((createAmenities) => [
   {
     id: 101,
-    name: 'VinaStay Saigon Riverside Hotel',
+    name: 'VietPeace Stay Saigon Riverside Hotel',
     propertyType: 'HOTEL',
     starRating: 5,
     score: 9.4,
@@ -306,7 +306,7 @@ export const HOTELS = ((createAmenities) => [
   },
   {
     id: 102,
-    name: 'VinaStay Hạ Long Heritage Resort',
+    name: 'VietPeace Stay Hạ Long Heritage Resort',
     propertyType: 'RESORT',
     starRating: 5,
     score: 9.6,
@@ -481,7 +481,7 @@ export const HOTELS = ((createAmenities) => [
   },
   {
     id: 103,
-    name: 'VinaStay Tri Tôn Palm Homestay',
+    name: 'VietPeace Stay Tri Tôn Palm Homestay',
     propertyType: 'HOMESTAY',
     starRating: 4,
     score: 9.2,
@@ -649,7 +649,7 @@ export const HOTELS = ((createAmenities) => [
   },
   {
     id: 104,
-    name: 'VinaStay Đà Nẵng Ocean Luxury Resort',
+    name: 'VietPeace Stay Đà Nẵng Ocean Luxury Resort',
     propertyType: 'RESORT',
     starRating: 5,
     score: 9.5,
@@ -804,7 +804,7 @@ export const HOTELS = ((createAmenities) => [
   },
   {
     id: 105,
-    name: 'VinaStay Hà Nội Boutique Hotel',
+    name: 'VietPeace Stay Hà Nội Boutique Hotel',
     propertyType: 'HOTEL',
     starRating: 4,
     score: 9.1,
@@ -951,7 +951,7 @@ export const HOTELS = ((createAmenities) => [
   },
   {
     id: 106,
-    name: 'VinaStay Châu Đốc Riverside Hotel',
+    name: 'VietPeace Stay Châu Đốc Riverside Hotel',
     propertyType: 'HOTEL',
     starRating: 4,
     score: 8.9,
