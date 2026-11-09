@@ -1,11 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { useBooking } from '../context/BookingContext.jsx';
-import { useAuth } from '../context/AuthContext.jsx';
-import { formatVND, formatDateVN, getStayNights, isSpecialHoliday, isWeekendNight } from '../utils/bookingUtils.js';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
+import { formatVND, formatDateVN } from '../utils/bookingUtils.js';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
-import PriceBreakdownTooltip from '../components/PriceBreakdownTooltip.jsx';
-import { HOTELS } from '../data/hotelsData.js';
+import RoomTypePriceBreakdownTooltip from '../components/room_types/RoomTypePriceBreakdownTooltip.jsx';
 
 // 24 one-hour windows covering the full day with standard ASCII hyphen and exact spacing
 const ARRIVAL_TIME_WINDOWS = [
@@ -45,7 +42,8 @@ const normalizeArrivalTime = (val) => {
   if (match) {
     return `${match[1]} - ${match[2]}`;
   }
-  return trimmed;
+  const start = /^(\d{2}):00(?::00)?$/.exec(trimmed);
+  return start ? ARRIVAL_TIME_WINDOWS[Number(start[1])] || '' : '';
 };
 
 /**
@@ -68,32 +66,109 @@ const isValidPhone = (phoneStr) => {
   return digitCount >= 7 && digitCount <= 16;
 };
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002').replace(/\/$/, '');
+
+async function requestCheckout(bookingId, body) {
+  const isStartingPayment = body !== undefined;
+  const path = isStartingPayment
+    ? '/booking/checkout/start-checkout'
+    : `/booking/checkout/get-booking-checkout/${encodeURIComponent(bookingId)}`;
+
+  const response = await fetch(API_BASE_URL + path, {
+    credentials: 'include',
+    ...(isStartingPayment ? {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body, bookingId }),
+    } : {}),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    const error = new Error(result.message || result.errorMsg || 'Không thể tải thông tin thanh toán.');
+    error.status = response.status;
+    error.code = result.errorCode;
+    error.fields = result.errors || result.errorsDetail || {};
+    throw error;
+  }
+  return result.data;
+}
+
+function CheckoutMessage({ message, onRetry, loading }) {
+  return (
+    <main className="checkout-page container-7xl" style={{ padding: '3rem 1rem', textAlign: 'center' }}>
+      <p role={loading ? 'status' : 'alert'}>{message}</p>
+      {onRetry && <button type="button" className="btn-primary" onClick={onRetry}>Thử lại</button>}
+      {' '}
+      <Link to="/search-accommodations">Quay lại tìm phòng</Link>
+    </main>
+  );
+}
+
 export default function CheckoutPage() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { bookings, markBookingPaid, markBookingExpired } = useBooking();
-  const { currentUser, showToast } = useAuth();
+  const bookingId = searchParams.get('bookingId') || '';
+  if (!/^[1-9]\d{0,18}$/.test(bookingId) || BigInt(bookingId) > 9223372036854775807n) {
+    return <CheckoutMessage message="Không tìm thấy thông tin đặt phòng cần thanh toán." />;
+  }
+  return <CheckoutLoader key={bookingId} bookingId={bookingId} />;
+}
 
-  const bookingId = searchParams.get('bookingId');
-  const booking = bookings.find(b => String(b.id) === String(bookingId)) || bookings.find(b => b.status === 'PENDING') || bookings[0];
+function CheckoutLoader({ bookingId }) {
+  const [requestKey, setRequestKey] = useState(0);
+  const [result, setResult] = useState(null);
+  const reload = () => {
+    setResult(null);
+    setRequestKey(value => value + 1);
+  };
+
+  useEffect(() => {
+    let ignore = false;
+    async function load() {
+      try {
+        const data = await requestCheckout(bookingId);
+        if (!ignore) setResult({ data });
+      } catch (error) {
+        if (!ignore) setResult({ error });
+      }
+    }
+    load();
+    // Khi bấm Back từ VNPay, trình duyệt có thể khôi phục nguyên trang từ bộ nhớ.
+    const handlePageShow = event => {
+      if (event.persisted) reload();
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => {
+      ignore = true;
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, [bookingId, requestKey]);
+
+  if (!result) return <CheckoutMessage loading message="Đang tải thông tin đặt phòng..." />;
+  if (result.error) return <CheckoutMessage message={result.error.message} onRetry={reload} />;
+  if (!result.data?.booking) {
+    return <CheckoutMessage message={result.data?.message || 'Không tìm thấy thông tin đặt phòng cần thanh toán.'} />;
+  }
+  return <CheckoutContent checkout={result.data} onReload={reload} />;
+}
+
+function CheckoutContent({ checkout, onReload }) {
+  const { booking, state, bookingVersion } = checkout;
+  const isReadOnly = state !== 'READY';
+  const canResume = state === 'RESUME_PAYMENT';
 
   // Section A: Contact Information
   const [contactName, setContactName] = useState(() => {
-    return (booking?.contact_name || booking?.contactName || booking?.userFullName || currentUser?.fullName || '').trim();
+    return (booking.contactName || '').trim();
   });
   const [contactEmail, setContactEmail] = useState(() => {
-    return (booking?.contact_email || booking?.contactEmail || booking?.userEmail || currentUser?.email || '').trim();
+    return (booking.contactEmail || '').trim();
   });
   const [contactPhone, setContactPhone] = useState(() => {
-    return (booking?.contact_phone || booking?.contactPhone || booking?.userPhone || currentUser?.phone || '').trim();
+    return (booking.contactPhone || '').trim();
   });
 
   // Section B: Lead Guest Information
-  const [isBookingForOther, setIsBookingForOther] = useState(() => {
-    if (booking?.is_booking_for_other !== undefined) return Boolean(booking.is_booking_for_other);
-    if (booking?.isBookingForOther !== undefined) return Boolean(booking.isBookingForOther);
-    return false;
-  });
+  const [isBookingForOther, setIsBookingForOther] = useState(() => Boolean(booking.guestName || booking.guestPhone || booking.guestEmail));
   const [guestName, setGuestName] = useState(() => (booking?.guest_name || booking?.guestName || ''));
   const [guestPhone, setGuestPhone] = useState(() => (booking?.guest_phone || booking?.guestPhone || ''));
   const [guestEmail, setGuestEmail] = useState(() => (booking?.guest_email || booking?.guestEmail || ''));
@@ -116,41 +191,45 @@ export default function CheckoutPage() {
   // Field validation errors
   const [errors, setErrors] = useState({});
 
-  // Countdown & Processing state
-  const [countdown, setCountdown] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [needsReload, setNeedsReload] = useState(false);
+  const submitting = useRef(false);
+  const mounted = useRef(true);
 
   useEffect(() => {
-    if (!booking) return;
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
-    const updateTimer = () => {
-      const remaining = Math.max(0, Math.floor((booking.expiresAt - Date.now()) / 1000));
-      setCountdown(remaining);
-      if (remaining <= 0 && booking.status === 'PENDING') {
-        markBookingExpired(booking.id);
-        showToast('Thời gian giữ phòng đã hết hạn!', 'error');
+  async function redirectToVnpay(fields = {}) {
+    if (submitting.current || needsReload) return;
+    submitting.current = true;
+    setIsProcessing(true);
+    setPaymentError('');
+    let redirecting = false;
+    try {
+      const data = await requestCheckout(booking.id, {
+        ...fields,
+        booking_version: bookingVersion,
+        payment_method: 'VNPAY',
+      });
+      if (!mounted.current) return;
+      if (!data?.paymentUrl) throw new Error('Không nhận được đường dẫn thanh toán VNPay.');
+      window.location.assign(data.paymentUrl);
+      redirecting = true;
+    } catch (error) {
+      if (!mounted.current) return;
+      setPaymentError(error.message);
+      setErrors(error.fields || {});
+      if (error.status === 409 || !error.status || error.status >= 500) setNeedsReload(true);
+    } finally {
+      if (!redirecting) {
+        submitting.current = false;
+        if (mounted.current) setIsProcessing(false);
       }
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [booking]);
-
-  if (!booking) {
-    return (
-      <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-        <div style={{ backgroundColor: 'var(--color-white)', padding: '2rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border)', textAlign: 'center', maxWidth: '28rem' }}>
-          <p style={{ fontSize: '1rem', color: 'var(--color-navy)', fontWeight: 700, marginBottom: '1rem' }}>Không tìm thấy thông tin đặt phòng cần thanh toán.</p>
-          <Link to="/search" className="btn-primary">
-            Quay lại tìm phòng
-          </Link>
-        </div>
-      </div>
-    );
+    }
   }
-
-  const isExpired = booking.status === 'EXPIRED' || (countdown <= 0 && booking.status === 'PENDING');
 
   // Switch guest options without wiping typed values
   const handleGuestOptionChange = (forOther) => {
@@ -181,10 +260,7 @@ export default function CheckoutPage() {
   const handleSubmitPayment = (e) => {
     e.preventDefault();
 
-    if (isExpired) {
-      showToast('Không thể thanh toán đơn đặt phòng đã hết hạn giữ chỗ.', 'error');
-      return;
-    }
+    if (isReadOnly || submitting.current || needsReload) return;
 
     const newErrors = {};
 
@@ -258,41 +334,23 @@ export default function CheckoutPage() {
     // Prepare submission payload per backend boundary requirements
     const trimmedSpecialRequests = specialRequests.trim();
     const preparedSubmission = {
-      booking_id: booking.id,
-      user_id: booking.userId || currentUser?.id || 101,
       contact_name: trimmedContactName,
       contact_email: trimmedContactEmail,
       contact_phone: trimmedContactPhone,
       is_booking_for_other: Boolean(isBookingForOther),
-      guest_name: isBookingForOther ? trimmedGuestName : trimmedContactName,
-      guest_phone: isBookingForOther ? trimmedGuestPhone : trimmedContactPhone,
-      guest_email: isBookingForOther ? (trimmedGuestEmail || null) : trimmedContactEmail,
+      guest_name: isBookingForOther ? trimmedGuestName : null,
+      guest_phone: isBookingForOther ? trimmedGuestPhone : null,
+      guest_email: isBookingForOther ? (trimmedGuestEmail || null) : null,
       special_requests: trimmedSpecialRequests ? trimmedSpecialRequests : null,
       expected_arrival_time: expectedArrivalTime ? expectedArrivalTime : null,
-      payment_method: 'VNPAY'
+      terms_accepted: termsAccepted
     };
 
-    // Note: The existing markBookingPaid API only accepts (bookingId, paymentMethod).
-    // Prepared submission data is maintained locally at checkout boundary.
-    setIsProcessing(true);
-
-    setTimeout(() => {
-      markBookingPaid(booking.id, 'VNPAY');
-      setIsProcessing(false);
-      showToast('Thanh toán thành công!', 'success');
-      navigate(`/booking-success?code=${encodeURIComponent(booking.bookingCode)}`);
-    }, 1200);
+    redirectToVnpay(preparedSubmission);
   };
 
-  // Preparation for booking details panel
-  const nightsCount = booking.nights > 0 ? booking.nights : 1;
-  const roomCount = booking.numberOfRooms || booking.items?.length || 0;
-  const stayNights = (booking.checkinDate && booking.checkoutDate)
-    ? getStayNights(booking.checkinDate, booking.checkoutDate)
-    : [];
-
-  const hotelData = HOTELS.find(h => h.id === booking.accommodationId);
-
+  const nightsCount = booking.nights;
+  const roomCount = booking.numberOfRooms;
   const roomsSubtotal = booking.roomSubtotal ?? (booking.items || []).reduce((sum, it) => sum + (it.roomStayPrice || 0), 0);
   const extraGuestTotal = booking.extraGuestsSubtotal ?? (booking.items || []).reduce((sum, it) => sum + (it.extraFeeTotal || 0), 0);
   const taxAmount = (booking.taxAmount !== null && booking.taxAmount !== undefined) ? booking.taxAmount : 0;
@@ -512,6 +570,21 @@ export default function CheckoutPage() {
           
           {/* Left Column: Form & Information Sections */}
           <div className="checkout-form-col">
+            {paymentError && <p role="alert">{paymentError}</p>}
+            {needsReload && <button type="button" className="btn-primary" onClick={onReload}>Kiểm tra lại đơn</button>}
+            {isReadOnly ? (
+              <div>
+                <p role="status">{checkout.message || 'Đơn đang có phiên thanh toán VNPay.'}</p>
+                {canResume ? (
+                  <button type="button" className="btn-primary" disabled={isProcessing || needsReload}
+                    onClick={() => redirectToVnpay()}>
+                    {isProcessing ? 'Đang mở VNPay...' : 'Tiếp tục thanh toán'}
+                  </button>
+                ) : (
+                  <button type="button" className="btn-primary" onClick={onReload}>Kiểm tra trạng thái</button>
+                )}
+              </div>
+            ) : (
             <form onSubmit={handleSubmitPayment} noValidate>
               
               {/* Section A: Booking contact information */}
@@ -920,15 +993,15 @@ export default function CheckoutPage() {
               {/* Submit Payment CTA */}
               <button
                 type="submit"
-                disabled={isExpired || isProcessing}
+                disabled={needsReload || isProcessing}
                 className="btn-primary btn-primary--full"
                 style={{
                   padding: '14px 20px',
                   fontSize: '1rem',
                   fontWeight: 800,
                   borderRadius: 'var(--radius-lg, 0.5rem)',
-                  cursor: (isExpired || isProcessing) ? 'not-allowed' : 'pointer',
-                  opacity: (isExpired || isProcessing) ? 0.7 : 1
+                  cursor: (needsReload || isProcessing) ? 'not-allowed' : 'pointer',
+                  opacity: (needsReload || isProcessing) ? 0.7 : 1
                 }}
               >
                 {isProcessing ? (
@@ -938,6 +1011,7 @@ export default function CheckoutPage() {
                 )}
               </button>
             </form>
+            )}
           </div>
 
           {/* Right Column: Order Summary Breakdown */}
@@ -953,7 +1027,7 @@ export default function CheckoutPage() {
 
             <div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-sunshine)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Mã giữ chỗ: {booking.bookingCode}
+                Mã đặt phòng: {booking.bookingCode}
               </div>
               <h4 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-navy)', marginTop: '2px' }}>
                 {booking.accommodationName}
@@ -981,77 +1055,21 @@ export default function CheckoutPage() {
                   .filter(r => (r.roomTypeId || r.id) === (item.roomTypeId || item.id))
                   .length;
 
-                // Fallback room definition from HOTELS data if needed
-                const roomDef = hotelData?.rooms?.find(r => r.id === (item.roomTypeId || item.id));
-
-                const basePrice = item.basePrice || roomDef?.basePrice || (nightsCount > 0 && item.roomStayPrice ? Math.round(item.roomStayPrice / nightsCount) : 1500000);
-                const weekendPrice = item.weekendPrice || roomDef?.weekendPrice || basePrice;
-                const holidayPrice = item.holidayPrice || roomDef?.holidayPrice || basePrice;
-
-                const includedAdults = item.includedAdults ?? roomDef?.includedAdults ?? 2;
-                const includedChildren = item.includedChildren ?? roomDef?.includedChildren ?? 1;
-                const extraAdultFee = item.extraAdultFee || roomDef?.extraAdultFee || 300000;
-                const extraChildFee = item.extraChildFee || roomDef?.extraChildFee || 150000;
-
-                // Nightly rates for this room
-                const nightlyRates = stayNights.map(nightDate => {
-                  let price = basePrice;
-                  if (isSpecialHoliday(nightDate)) {
-                    price = holidayPrice;
-                  } else if (isWeekendNight(nightDate)) {
-                    price = weekendPrice;
-                  }
-                  const day = nightDate.getDay();
-                  const weekdayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-                  const dateFormatted = `${String(nightDate.getDate()).padStart(2, '0')}/${String(nightDate.getMonth() + 1).padStart(2, '0')}/${nightDate.getFullYear()}`;
-                  return {
-                    date: nightDate,
-                    label: `${weekdayMap[day]} (${dateFormatted})`,
-                    price,
-                    amountStr: formatVND(price)
-                  };
-                });
-
-                const calculatedStayPrice = nightlyRates.length > 0
-                  ? nightlyRates.reduce((sum, r) => sum + r.price, 0)
-                  : basePrice * nightsCount;
-                const roomStayPrice = item.roomStayPrice || calculatedStayPrice;
-
-                // Extra guest charges for this specific physical room
-                const extraAdults = Math.max(0, (item.adults || 1) - includedAdults);
-                const extraChildren = Math.max(0, (item.children || 0) - includedChildren);
-
-                const extraAdultTotal = extraAdults * extraAdultFee * nightsCount;
-                const extraChildTotal = extraChildren * extraChildFee * nightsCount;
-                const roomTotal = roomStayPrice + extraAdultTotal + extraChildTotal;
-
-                // Detailed nightly surcharge breakdowns
-                const adultBreakdown = stayNights.map(nightDate => {
-                  const day = nightDate.getDay();
-                  const weekdayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-                  const dateFormatted = `${String(nightDate.getDate()).padStart(2, '0')}/${String(nightDate.getMonth() + 1).padStart(2, '0')}/${nightDate.getFullYear()}`;
-                  const nightlySubtotal = extraAdultFee * extraAdults;
-                  return {
-                    label: `${weekdayMap[day]} (${dateFormatted})`,
-                    calculationStr: `${formatVND(extraAdultFee)}/người × ${extraAdults} người = ${formatVND(nightlySubtotal)}`,
-                    amountStr: formatVND(nightlySubtotal)
-                  };
-                });
-
-                const childBreakdown = stayNights.map(nightDate => {
-                  const day = nightDate.getDay();
-                  const weekdayMap = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-                  const dateFormatted = `${String(nightDate.getDate()).padStart(2, '0')}/${String(nightDate.getMonth() + 1).padStart(2, '0')}/${nightDate.getFullYear()}`;
-                  const nightlySubtotal = extraChildFee * extraChildren;
-                  return {
-                    label: `${weekdayMap[day]} (${dateFormatted})`,
-                    calculationStr: `${formatVND(extraChildFee)}/trẻ em × ${extraChildren} trẻ em = ${formatVND(nightlySubtotal)}`,
-                    amountStr: formatVND(nightlySubtotal)
-                  };
-                });
+                const extraAdults = Math.max(0, item.adults - item.includedAdults);
+                const extraChildren = Math.max(0, item.children - item.includedChildren);
+                const { nightlyRates, roomStayPrice, extraAdultTotal, extraChildTotal } = item;
+                const roomTotal = item.totalAmount;
+                const adultBreakdown = nightlyRates.map(({ stayDate }) => ({
+                  label: formatDateVN(stayDate),
+                  amountStr: formatVND(item.extraAdultFee * extraAdults),
+                }));
+                const childBreakdown = nightlyRates.map(({ stayDate }) => ({
+                  label: formatDateVN(stayDate),
+                  amountStr: formatVND(item.extraChildFee * extraChildren),
+                }));
 
                 return (
-                  <div key={item.clientId || idx} className="selected-room-row">
+                  <div key={item.id} className="selected-room-row">
                     <h4 className="selected-room-title">
                       {item.roomName} - Phòng {typeIndex}
                     </h4>
@@ -1067,9 +1085,9 @@ export default function CheckoutPage() {
                       <div className="selected-room-price-line selected-room-price-line--total" style={{ alignItems: 'center' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span>Tiền phòng {nightsCount} đêm:</span>
-                          <PriceBreakdownTooltip
+                          <RoomTypePriceBreakdownTooltip
                             title="Chi tiết tiền phòng"
-                            items={nightlyRates}
+                            nightlyRates={nightlyRates}
                             totalLabel="Tổng tiền phòng"
                             totalAmount={roomStayPrice}
                             ariaLabel={`Xem chi tiết tiền phòng ${item.roomName} - Phòng ${typeIndex}`}
@@ -1092,7 +1110,7 @@ export default function CheckoutPage() {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span>Phụ thu người lớn:</span>
-                          <PriceBreakdownTooltip
+                          <RoomTypePriceBreakdownTooltip
                             title="Chi tiết phụ thu người lớn"
                             subtitle={`Số người lớn tính phụ thu: ${extraAdults}`}
                             emptyNotice={
@@ -1123,7 +1141,7 @@ export default function CheckoutPage() {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <span>Phụ thu trẻ em:</span>
-                          <PriceBreakdownTooltip
+                          <RoomTypePriceBreakdownTooltip
                             title="Chi tiết phụ thu trẻ em"
                             subtitle={`Số trẻ em tính phụ thu: ${extraChildren}`}
                             emptyNotice={
@@ -1141,6 +1159,13 @@ export default function CheckoutPage() {
                           {extraChildTotal > 0 ? `+${formatVND(extraChildTotal)}` : '0 ₫'}
                         </span>
                       </div>
+
+                      {item.discountAmount > 0 && (
+                        <div className="selected-room-price-line">
+                          <span>Giảm giá phòng:</span>
+                          <span className="tabular-nums">-{formatVND(item.discountAmount)}</span>
+                        </div>
+                      )}
 
                       {/* Tổng phòng */}
                       <div
@@ -1191,6 +1216,12 @@ export default function CheckoutPage() {
 
               {/* Discount rows remain commented out / hidden as in reference */}
               {/*
+              {booking.roomDiscountTotal > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Giảm giá theo phòng:</span>
+                  <span className="tabular-nums">-{formatVND(booking.roomDiscountTotal)}</span>
+                </div>
+              )}
               {booking.discountAmount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-emerald-text)', fontWeight: 600, backgroundColor: 'var(--color-emerald-bg)', padding: '4px 8px', borderRadius: 'var(--radius-sm)' }}>
                   <span>{booking.promotionName || 'Ưu đãi áp dụng'}:</span>

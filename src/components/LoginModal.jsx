@@ -182,7 +182,7 @@ export default function LoginModal({ isOpen, onClose, returnUrl = '/' }) {
                             fontSize: '1.25rem',
                         }}
                     >
-                        VinaStay <span>Group</span>
+                        VietPeace <span>Stay</span>
                     </div>
                     <h2
                         style={{
