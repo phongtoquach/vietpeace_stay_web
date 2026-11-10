@@ -74,6 +74,9 @@ async function requestCheckout(bookingId, body) {
     ? '/booking/checkout/start-checkout'
     : `/booking/checkout/get-booking-checkout/${encodeURIComponent(bookingId)}`;
 
+  console.log("[requestCheckout] isStartingPayment : ", isStartingPayment);
+  console.log("[requestCheckout] Data cua body : ", body);
+
   const response = await fetch(API_BASE_URL + path, {
     credentials: 'include',
     ...(isStartingPayment ? {
