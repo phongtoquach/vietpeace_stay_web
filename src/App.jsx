@@ -33,7 +33,6 @@ import PrivacyPage from './pages/PrivacyPage.jsx';
 import RequireUserLoggedIn from './components/RequireUserLoggedIn';
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
-import ChatWidget from './components/ChatWidget.jsx';
 
 //import Home from "./pages/Home.jsx";
 
@@ -77,9 +76,6 @@ function App() {
                         </div>
 
                         <Footer />
-
-                        {/* Chatbot hỗ trợ khách (T12) — hiện trên mọi trang */}
-                        <ChatWidget />
                     </BookingProvider>
                 </AuthProvider>
             </AppProvider>
