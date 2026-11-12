@@ -1,18 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+//import { useAuth } from '../context/AuthContext.jsx';
+
+import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
     console.log("[LoginPage] Vừa vào hàm component LoginPage !");
 
+    const { state } = useLocation();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    //const [searchParams] = useSearchParams();
     //const { login } = useAuth();
+    const fromUrl = state?.from ?? "/";
+
+    console.log("[LoginPage] Value của biến fromUrl : " + fromUrl);
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
-    const returnUrl = searchParams.get('returnUrl') || '/';
+    const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [bannerError, setBannerError] = useState('');
+    const [errorsDetail, setErrorsDetail] = useState({});
+
+    //const returnUrl = searchParams.get('returnUrl') || '/';
 
     useEffect(() => {
         console.log("[LoginPage] đang chạy useEffect() của component LoginPage !");
@@ -27,28 +38,73 @@ export default function LoginPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const api_response = await fetch(`http://localhost:3002/api/web/auth/login`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            credentials: "include"
-        });
-        console.log("[LoginPage - handleSubmit] Response cua API /auth/login : ", api_response);
+        if (isLoading) return;
+        setBannerError('');
+        setErrorsDetail({});
 
-        if (!api_response.ok) {
-            alert("Calling login API has been failed !");
+        const fieldErrors = {};
+
+        // validate email
+        let emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+        let emailVal = email.trim();
+        if (emailVal == '') {
+            fieldErrors.email = 'Vui lòng nhập địa chỉ email';
+        } else if (emailRegex.test(emailVal) == false) {
+            fieldErrors.email = 'Email không đúng định dạng';
         }
 
-        const response_data = await api_response.json();
-        console.log("[LoginPage - handleSubmit] API response OK ! Data cua response_data : ", response_data);
+        // validate password
+        if (!password) {
+            fieldErrors.password = 'Vui lòng nhập mật khẩu';
+        }
 
-        navigate("/");
+        if (Object.keys(fieldErrors).length > 0) {
+            setErrorsDetail(fieldErrors);
+            setBannerError('Vui lòng nhập đầy đủ thông tin đăng nhập.');
+            return;
+        }
 
-        // const success = login(email, password);
-        // if (success) {
-        //     navigate(returnUrl);
-        // }
+        setIsLoading(true);
+
+        try {
+            const api_response = await fetch(
+                `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api/web').replace(/\/$/, '')}/auth/login`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: emailVal,
+                        password: password,
+                    }),
+                    credentials: 'include',
+                },
+            );
+
+            const response_data = await api_response.json();
+
+            if (!api_response.ok || !response_data.success) {
+                setErrorsDetail(response_data.errors || response_data.errorsDetail || {},);
+                setBannerError(response_data.message || 'Không thể đăng nhập. Vui lòng thử lại.',);
+                return;
+            }
+
+            const customer = response_data.data?.loginCustomerInfo;
+            if (!customer)
+                throw new Error('Response đăng nhập thiếu loginCustomerInfo.');
+            
+            // navigate
+            navigate(fromUrl, { replace: true });
+            
+        } catch (err) {
+            console.error('Login error:', err);
+            setBannerError(
+                'Đã có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại.',
+            );
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -63,36 +119,124 @@ export default function LoginPage() {
                 <p style={{ fontSize: '0.875rem', color: 'var(--color-slate)', marginTop: '4px' }}>Đăng nhập để đặt phòng và hưởng ưu đãi trực tiếp.</p>
                 </div>
 
+                {/* Banner Error if any */}
+                {bannerError && (
+                    <div
+                        className="auth-banner-error"
+                        role="alert"
+                        style={{ marginBottom: '1rem' }}
+                    >
+                        <AlertCircle
+                            style={{
+                                width: '16px',
+                                height: '16px',
+                                flexShrink: 0,
+                            }}
+                        />
+                        <span>{bannerError}</span>
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div>
-                        <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)', display: 'block', marginBottom: '4px' }}>Email</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="auth-input"
-                        />
-                    </div>
-
-                    <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)' }}>Mật khẩu</label>
-                        <a href="#" style={{ fontSize: '12px', color: 'var(--color-sunshine)', fontWeight: 600, textDecoration: 'underline' }}>Quên mật khẩu?</a>
+                        <div>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)', display: 'block', marginBottom: '4px' }}>Email</label>
+                            <input
+                                type="text"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="auth-input"
+                                disabled={isLoading}
+                            />
                         </div>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="auth-input"
-                        />
+                        {errorsDetail.email && (
+                            <span className="auth-field-error">
+                                {errorsDetail.email}
+                            </span>
+                        )}
+                    </div>
+                    
+                    <div>
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)' }}>Mật khẩu</label>
+                                <a href="#" style={{ fontSize: '12px', color: 'var(--color-sunshine)', fontWeight: 600, textDecoration: 'underline' }}>Quên mật khẩu?</a>
+                            </div>
+
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="auth-input"
+                                    disabled={isLoading}
+                                />
+
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '10px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--color-slate)',
+                                        cursor: 'pointer',
+                                        padding: '4px',
+                                    }}
+                                    aria-label={
+                                        showPassword
+                                            ? 'Ẩn mật khẩu'
+                                            : 'Hiện mật khẩu'
+                                    }
+                                >
+                                    {showPassword ? (
+                                        <EyeOff
+                                            style={{
+                                                width: '16px',
+                                                height: '16px',
+                                            }}
+                                        />
+                                    ) : (
+                                        <Eye
+                                            style={{
+                                                width: '16px',
+                                                height: '16px',
+                                            }}
+                                        />
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                        {errorsDetail.password && (
+                            <span className="auth-field-error">
+                                {errorsDetail.password}
+                            </span>
+                        )}
                     </div>
 
                     <button
                         type="submit"
                         className="btn-primary btn-primary--full"
+                        disabled={isLoading}
                         style={{ padding: '12px', borderRadius: 'var(--radius-lg)' }}
                     >
-                        Đăng Nhập
+                        {isLoading ? (
+                            <>
+                                <Loader2
+                                    style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        animation: 'spin 1s linear infinite',
+                                    }}
+                                />
+                                <span>Đang xử lý...</span>
+                            </>
+                        ) : (
+                            <span>Đăng Nhập</span>
+                        )}
                     </button>
 
                 </form>
