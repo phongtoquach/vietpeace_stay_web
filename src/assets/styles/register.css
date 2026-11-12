@@ -52,3 +52,9 @@
   .register-note { display: none; }
   .register-card { padding: 26px 22px; border-radius: 20px; }
 }
+
+.register-field-error { margin-top: 6px; font-size: 12px; color: #9f1239; }
+.register-field input[aria-invalid="true"] { border-color: #9f1239; }
+.register-submit:disabled { opacity: .65; cursor: wait; }
+
+.register-success-note { display: block; margin-top: 10px; color: var(--register-green); font-size: 13px; text-align: center; }
