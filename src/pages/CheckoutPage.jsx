@@ -1029,9 +1029,9 @@ function CheckoutContent({ checkout, onReload }) {
             </div>
 
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-sunshine)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {/* <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-sunshine)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Mã đặt phòng: {booking.bookingCode}
-              </div>
+              </div> */}
               <h4 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-navy)', marginTop: '2px' }}>
                 {booking.accommodationName}
               </h4>

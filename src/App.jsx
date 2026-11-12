@@ -55,9 +55,6 @@ function App() {
                                     <Route path="/search-accommodations" element={<AccommodationSearchPage />} />
                                     <Route path="/accommodation-detail" element={<AccommodationDetailPage />} />
 
-                                    <Route path="/search" element={<SearchPage />} />
-                                    <Route path="/hotel-detail" element={<HotelDetailPage />} />
-
                                     <Route path="/payment/vnpay/return" element={<VnpayReturnPage />} />
                             
                                     <Route path="/about" element={<AboutPage />} />
@@ -73,7 +70,6 @@ function App() {
                                         <Route path="/booking-detail" element={<BookingDetailPage />} />
 
                                         <Route path="/checkout" element={<CheckoutPage />} />
-                                        <Route path="/booking-success" element={<BookingSuccessPage />} />
                                     </Route>
                                 </Routes>
                             </div>

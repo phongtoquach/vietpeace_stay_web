@@ -33,7 +33,7 @@ const RESULT_COPY = {
     },
     REFUND_PENDING: {
         title: 'Đang xử lý hoàn tiền',
-        message: 'VNPay đã ghi nhận thanh toán nhưng không thể xác nhận đặt phòng. VietPeace Stay đang xử lý hoàn toàn bộ số tiền.',
+        message: 'VNPay đã ghi nhận thanh toán nhưng VietPeace Stay không thể xác nhận đặt phòng. VietPeace Stay đang xử lý hoàn toàn bộ số tiền.',
     },
     REFUNDED: {
         title: 'Đã hoàn tiền',
