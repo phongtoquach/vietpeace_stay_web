@@ -52,7 +52,7 @@ export default function Header() {
 
     const navLinks = [
         { label: 'Trang chủ', path: '/' },
-        { label: 'Tìm chỗ nghỉ', path: '/search' },
+        { label: 'Tìm chỗ nghỉ', path: '/search-accommodations' },
         { label: 'Về tập đoàn', path: '/about' },
         { label: 'Liên hệ', path: '/contact' },
     ];
