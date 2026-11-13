@@ -12,8 +12,8 @@ import RegisterPage from './pages/RegisterPage';
 import AccommodationSearchPage from './pages/AccommodationSearchPage';
 import AccommodationDetailPage from './pages/AccommodationDetailPage';
 
-import SearchPage from './pages/SearchPage';
-import HotelDetailPage from './pages/HotelDetailPage';
+import CustomerBookingDetailPage from './pages/CustomerBookingDetailPage';
+
 
 import ProfilePage from './pages/ProfilePage';
 import MyBookingsPage from './pages/MyBookingsPage';
@@ -66,8 +66,8 @@ function App() {
                                     {/* ROUTES REQUIRED LOGGED-IN USER */}
                                     <Route element={<RequireUserLoggedIn />}>
                                         <Route path="/profile" element={<ProfilePage />} />
-                                        <Route path="/bookings" element={<MyBookingsPage />} />
-                                        <Route path="/booking-detail" element={<BookingDetailPage />} />
+                                        <Route path="/my-account/my-bookings" element={<MyBookingsPage />} />
+                                        <Route path="/my-account/my-bookings/booking/:bookingId" element={<CustomerBookingDetailPage />} />
 
                                         <Route path="/checkout" element={<CheckoutPage />} />
                                     </Route>
