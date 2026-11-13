@@ -98,10 +98,10 @@ export default function Header() {
                                 className="user-menu-btn"
                             >
                                 <div className="user-avatar">
-                                    {currentLoggedInUser.fullname ? currentLoggedInUser.fullname.split(' ').slice(-1)[0][0] : 'U'}
+                                    {currentLoggedInUser.displayName ? currentLoggedInUser.displayName.split(' ').slice(-1)[0][0] : 'U'}
                                 </div>
                                 <span className="user-name">
-                                    {currentLoggedInUser.fullname}
+                                    {currentLoggedInUser.displayName}
                                 </span>
                                 <ChevronDown style={{ width: '16px', height: '16px', color: 'var(--color-slate)', transition: 'transform 150ms ease', transform: dropdownOpen ? 'rotate(180deg)' : 'none' }} />
                             </button>
