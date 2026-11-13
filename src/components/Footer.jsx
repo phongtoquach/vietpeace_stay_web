@@ -34,17 +34,17 @@ export default function Footer() {
             </h3>
             <ul className="footer-link-list">
               <li>
-                <Link to="/search?propertyType=HOTEL" className="footer-link">
+                <Link to="/search-accommodations?accommodationTypeIds=1" className="footer-link">
                   Khách Sạn Thành Phố (Hotel)
                 </Link>
               </li>
               <li>
-                <Link to="/search?propertyType=RESORT" className="footer-link">
+                <Link to="/search-accommodations?accommodationTypeIds=2" className="footer-link">
                   Khu Nghỉ Dưỡng Ven Biển (Resort)
                 </Link>
               </li>
               <li>
-                <Link to="/search?propertyType=HOMESTAY" className="footer-link">
+                <Link to="/search-accommodations?accommodationTypeIds=3" className="footer-link">
                   Homestay Sinh Thái Bản Địa
                 </Link>
               </li>

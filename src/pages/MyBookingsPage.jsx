@@ -83,7 +83,7 @@ export default function MyBookingsPage() {
                 {filtered.length === 0 ? (
                     <div style={{ backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', border: '1px dashed var(--color-border)', padding: '2.5rem', textAlign: 'center', color: 'var(--color-slate)' }}>
                         <p style={{ fontSize: '0.875rem', fontWeight: 600 }}>Chưa có đơn đặt phòng nào trong mục này.</p>
-                        <Link to="/search" className="btn-primary" style={{ marginTop: '12px', padding: '8px 16px', fontSize: '12px' }}>
+                        <Link to="/search-accommodations" className="btn-primary" style={{ marginTop: '12px', padding: '8px 16px', fontSize: '12px' }}>
                         Tìm chỗ nghỉ ngay
                         </Link>
                     </div>

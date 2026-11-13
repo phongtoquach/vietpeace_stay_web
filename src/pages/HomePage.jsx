@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import HeroSlider from '../components/HeroSlider.jsx';
 
@@ -7,18 +7,64 @@ import AccommodationSearchForm from '../components/AccommodationSearchForm';
 
 import PopularDestinationsGrid from '../components/PopularDestinationsGrid';
 
-import HotelCard from '../components/HotelCard.jsx';
+import AccommodationCard from '../components/AccommodationCard';
 import ImageGalleryModal from '../components/ImageGalleryModal.jsx';
-import { HOTELS, POPULAR_DESTINATIONS } from '../data/hotelsData.js';
 import { ShieldCheck, Tag, Clock, Award, ArrowRight } from 'lucide-react';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api/web').replace(/\/$/, '');
+
 export default function HomePage() {
+  const [featuredAccommodations, setFeaturedAccommodations] = useState([]);
+  const [featuredLoading, setFeaturedLoading] = useState(true);
+  const [featuredError, setFeaturedError] = useState('');
+  const [featuredRetryKey, setFeaturedRetryKey] = useState(0);
+
   const [galleryModal, setGalleryModal] = useState({
     isOpen: false,
     title: '',
     images: [],
     initialIndex: 0
   });
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadFeaturedAccommodations() {
+      setFeaturedLoading(true);
+      setFeaturedError('');
+      try {
+        const response = await fetch(`${API_BASE_URL}/accommodations/search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sort: 'default', page: 1, pageSize: 3 }),
+          credentials: 'include',
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.errorMsg || result.message || 'Không thể tải danh sách chỗ nghỉ nổi bật.');
+        }
+        if (!Array.isArray(result.data?.items)) {
+          throw new Error('Dữ liệu chỗ nghỉ nổi bật không hợp lệ.');
+        }
+        if (!ignore) {
+          setFeaturedAccommodations(result.data.items);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setFeaturedError(error.message || 'Không thể tải danh sách chỗ nghỉ nổi bật.');
+        }
+      } finally {
+        if (!ignore) {
+          setFeaturedLoading(false);
+        }
+      }
+    }
+
+    loadFeaturedAccommodations();
+    return () => {
+      ignore = true;
+    };
+  }, [featuredRetryKey]);
 
   const handleOpenGallery = (title, images, initialIndex = 0) => {
     setGalleryModal({
@@ -32,9 +78,6 @@ export default function HomePage() {
   const handleCloseGallery = () => {
     setGalleryModal(prev => ({ ...prev, isOpen: false }));
   };
-
-  // Top 3 featured hotels for homepage
-  const featuredHotels = HOTELS.slice(0, 3);
 
   return (
     <div className="home-page">
@@ -220,7 +263,7 @@ export default function HomePage() {
               </p>
             </div>
             <Link
-              to="/search"
+              to="/search-accommodations"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -240,14 +283,31 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="featured-cards-stack">
-            {featuredHotels.map((hotel) => (
-              <HotelCard
-                key={hotel.id}
-                hotel={hotel}
-                onOpenGallery={handleOpenGallery}
-              />
-            ))}
+          <div className="featured-cards-stack" aria-busy={featuredLoading}>
+            {featuredLoading ? (
+              <p>Đang tải danh sách chỗ nghỉ nổi bật...</p>
+            ) : featuredError ? (
+              <div role="alert" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <span>{featuredError}</span>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => setFeaturedRetryKey((value) => value + 1)}
+                >
+                  Thử lại
+                </button>
+              </div>
+            ) : featuredAccommodations.length === 0 ? (
+              <p>Chưa có chỗ nghỉ nổi bật.</p>
+            ) : (
+              featuredAccommodations.map((accommodation) => (
+                <AccommodationCard
+                  key={accommodation.id}
+                  accommodation={accommodation}
+                  onOpenGallery={handleOpenGallery}
+                />
+              ))
+            )}
           </div>
         </div>
       </section>
