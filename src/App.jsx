@@ -12,14 +12,12 @@ import RegisterPage from './pages/RegisterPage';
 import AccommodationSearchPage from './pages/AccommodationSearchPage';
 import AccommodationDetailPage from './pages/AccommodationDetailPage';
 
+import CustomerBookingsPage from './pages/CustomerBookingsPage';
 import CustomerBookingDetailPage from './pages/CustomerBookingDetailPage';
 
 
 import ProfilePage from './pages/ProfilePage';
-import MyBookingsPage from './pages/MyBookingsPage';
-import BookingDetailPage from './pages/BookingDetailPage';
 import CheckoutPage from './pages/CheckoutPage';
-import BookingSuccessPage from './pages/BookingSuccessPage';
 
 import VnpayReturnPage from './pages/VnpayReturnPage';
 
@@ -66,7 +64,7 @@ function App() {
                                     {/* ROUTES REQUIRED LOGGED-IN USER */}
                                     <Route element={<RequireUserLoggedIn />}>
                                         <Route path="/profile" element={<ProfilePage />} />
-                                        <Route path="/my-account/my-bookings" element={<MyBookingsPage />} />
+                                        <Route path="/my-account/my-bookings" element={<CustomerBookingsPage />} />
                                         <Route path="/my-account/my-bookings/booking/:bookingId" element={<CustomerBookingDetailPage />} />
 
                                         <Route path="/checkout" element={<CheckoutPage />} />
