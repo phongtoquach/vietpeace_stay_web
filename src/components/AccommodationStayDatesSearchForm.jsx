@@ -40,6 +40,11 @@ export default function AccommodationStayDatesSearchForm({
   const [checkout, setCheckout] = useState(initialCheckout);
   const [rooms, setRooms] = useState(initialRooms || 1);
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+
   // Sync internal state when initial props change
   useEffect(() => {
     if (initialCheckin) setCheckin(initialCheckin);
@@ -145,7 +150,7 @@ export default function AccommodationStayDatesSearchForm({
                 onChange={handleCheckinChange}
                 dateFormat="dd/MM/yyyy"
                 className="custom-datepicker-input"
-                minDate={new Date('2026-01-01T00:00:00')}
+                minDate={today}
                 placeholderText="Chọn ngày nhận phòng"
               />
             </div>
@@ -172,7 +177,7 @@ export default function AccommodationStayDatesSearchForm({
                     next.setDate(next.getDate() + 1);
                     return next;
                   }
-                  return new Date('2026-01-02T00:00:00');
+                  return tomorrow;
                 })()}
                 placeholderText="Chọn ngày trả phòng"
               />
