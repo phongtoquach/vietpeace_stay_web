@@ -121,7 +121,7 @@ export default function Header() {
                                     <span>Thông tin cá nhân</span>
                                 </Link>
                                 <Link
-                                    to="/bookings"
+                                    to="/my-account/my-bookings"
                                     className="dropdown-link"
                                 >
                                     <Calendar style={{ width: '16px', height: '16px', color: 'var(--color-slate)' }} />

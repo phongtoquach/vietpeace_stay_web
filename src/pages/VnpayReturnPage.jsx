@@ -214,7 +214,7 @@ function ConfirmedCard({ booking }) {
             <div style={ACTIONS_STYLE}>
                 {booking?.bookingId && (
                     <Link
-                        to={`/booking-detail?bookingId=${encodeURIComponent(booking.bookingId)}`}
+                        to={`/my-account/my-bookings/booking/${encodeURIComponent(booking.bookingId)}`}
                         className="btn-primary"
                     >
                         Xem chi tiết đặt phòng
@@ -222,7 +222,7 @@ function ConfirmedCard({ booking }) {
                 )}
 
                 <Link
-                    to="/bookings"
+                    to="/my-account/my-bookings"
                     style={{
                         padding: '10px 20px',
                         borderRadius: 'var(--radius-md)',
