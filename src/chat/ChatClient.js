@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-const BACKEND_BASE = (import.meta.env.VITE_BACKEND_APP_BASE_URL || "http://localhost:3002").replace(/\/+$/, "");
+const BACKEND_BASE = (import.meta.env?.VITE_BACKEND_APP_BASE_URL || "http://localhost:3002").replace(/\/+$/, "");
 const CHAT_API_BASE = `${BACKEND_BASE}/api/web/chat`;
 
 async function request(path, { method = "GET", body = null } = {}) {
@@ -25,10 +25,11 @@ async function request(path, { method = "GET", body = null } = {}) {
   return json.data;
 }
 
-class WebChatClient {
+export class WebChatClient {
   constructor() {
     this.socket = null;
     this.connectingPromise = null;
+    this.connectionVersion = 0;
   }
 
   bootstrap() {
@@ -102,6 +103,10 @@ class WebChatClient {
     return request(`/conversations/${conversationId}/cancel-handoff`, { method: "POST", body: {} });
   }
 
+  returnToAi(conversationId) {
+    return request(`/conversations/${conversationId}/return-ai`, { method: "POST", body: {} });
+  }
+
   markDelivered(conversationId, sequence) {
     return request(`/conversations/${conversationId}/delivered`, { method: "POST", body: { sequence } });
   }
@@ -133,7 +138,8 @@ class WebChatClient {
       return this.connectingPromise;
     }
 
-    this.connectingPromise = (async () => {
+    const version = this.connectionVersion;
+    const connectingPromise = (async () => {
       if (this.socket) {
         this.socket.removeAllListeners();
         this.socket.disconnect();
@@ -141,40 +147,52 @@ class WebChatClient {
       }
 
       const { ticket } = await this.getSocketTicket();
+      if (version !== this.connectionVersion) {
+        throw Object.assign(new Error("Phiên kết nối chat đã thay đổi."), { errorCode: "CHAT_CONNECTION_CANCELLED" });
+      }
+      let pendingInitialTicket = ticket;
+
       const socket = io(`${BACKEND_BASE}/chat`, {
         path: "/socket.io",
+        autoConnect: false,
         withCredentials: true,
         transports: ["websocket", "polling"],
-        auth: { ticket },
-        reconnection: true,
-        reconnectionAttempts: 8,
-        reconnectionDelay: 1200,
-      });
-
-      // Refresh single-use ticket cleanly before reconnect attempts
-      socket.on("connect_error", async (err) => {
-        if (/TICKET|TOKEN|SESSION|401/i.test(String(err?.message || ""))) {
-          try {
-            const refreshed = await this.getSocketTicket();
-            socket.auth = { ticket: refreshed.ticket };
-          } catch {
-            // let reconnect backoff handle
+        auth: (cb) => {
+          if (pendingInitialTicket) {
+            const first = pendingInitialTicket;
+            pendingInitialTicket = null;
+            cb({ ticket: first });
+            return;
           }
-        }
+          this.getSocketTicket()
+            .then((refreshed) => {
+              cb({ ticket: refreshed?.ticket || "" });
+            })
+            .catch(() => {
+              cb({});
+            });
+        },
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1500,
+        reconnectionDelayMax: 8000,
       });
 
       this.socket = socket;
       return socket;
     })();
+    this.connectingPromise = connectingPromise;
 
     try {
-      return await this.connectingPromise;
+      return await connectingPromise;
     } finally {
-      this.connectingPromise = null;
+      if (this.connectingPromise === connectingPromise) this.connectingPromise = null;
     }
   }
 
   disconnectSocket() {
+    this.connectionVersion += 1;
+    this.connectingPromise = null;
     if (this.socket) {
       this.socket.removeAllListeners();
       this.socket.disconnect();

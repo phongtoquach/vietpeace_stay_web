@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:chat": "node --test test/chat_state.test.js test/chat.browser.test.js",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
@@ -27,6 +28,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.6",
     "globals": "^17.12.0",
+    "playwright-core": "^1.65.1",
     "vite": "^8.3.0"
   }
 }

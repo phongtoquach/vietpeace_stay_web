@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import {
-  MessageCircle,
   X,
   Send,
   Bot,
@@ -12,7 +11,6 @@ import {
   Sparkles,
   LogOut,
   AlertCircle,
-  Layers,
   Loader2,
 } from "lucide-react";
 import { useChat } from "./ChatContext";
@@ -21,20 +19,49 @@ import {
   formatClockTime,
   formatCountdownSeconds,
   getOutgoingReceiptMeta,
-  resolveMediaUrl,
 } from "./chatUtils";
 import "./chat.css";
+
+function ConciergeChatLogo() {
+  return (
+    <svg
+      className="vps-launcher-svg"
+      width="28"
+      height="28"
+      viewBox="0 0 28 28"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        className="vps-svg-bubble"
+        d="M14 4.5C8.201 4.5 3.5 8.606 3.5 13.67c0 2.025.755 3.896 2.03 5.41-.24 1.38-.82 2.674-1.572 3.63a.55.55 0 0 0 .485.887c1.805-.165 3.627-.75 5.016-1.525A11.75 11.75 0 0 0 14 22.84c5.799 0 10.5-4.106 10.5-9.17S19.799 4.5 14 4.5Z"
+        fill="currentColor"
+      />
+      <circle className="vps-svg-dot vps-svg-dot-1" cx="9.8" cy="13.7" r="1.45" fill="var(--color-navy-dark)" />
+      <circle className="vps-svg-dot vps-svg-dot-2" cx="14" cy="13.7" r="1.45" fill="var(--color-navy-dark)" />
+      <circle className="vps-svg-dot vps-svg-dot-3" cx="18.2" cy="13.7" r="1.45" fill="var(--color-navy-dark)" />
+      <path
+        className="vps-svg-sparkle"
+        d="M23.2 2.2l.55 1.65 1.65.55-1.65.55-.55 1.65-.55-1.65-1.65-.55 1.65-.55.55-1.65Z"
+        fill="#FDE68A"
+      />
+    </svg>
+  );
+}
 
 function renderFormattedText(text) {
   if (!text) return null;
   const lines = String(text).split(/\r?\n/);
   return lines.map((line, i) => {
-    const parts = line.split(/(\*\*[^*]+\*\*)/g);
+    const parts = line.split(/(\*\*[^*]+\*\*|\*[^\s*](?:[^*\n]*[^\s*])?\*)/g);
     return (
       <React.Fragment key={i}>
         {parts.map((part, j) => {
           if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
             return <strong key={j}>{part.slice(2, -2)}</strong>;
+          }
+          if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+            return <em key={j}>{part.slice(1, -1)}</em>;
           }
           return <React.Fragment key={j}>{part}</React.Fragment>;
         })}
@@ -51,14 +78,57 @@ function secondsRemaining(isoString, nowMs) {
   return Math.max(0, Math.ceil((target - nowMs) / 1000));
 }
 
-function HandoffRatingBox({ handoffId, onSubmit }) {
-  const [stars, setStars] = useState(5);
+function getSenderMeta(senderType, managerName) {
+  if (senderType === "CUSTOMER" || senderType === "GUEST") {
+    return { isSelf: true, key: "SELF", label: "", kind: "self" };
+  }
+  if (senderType === "MANAGER") {
+    const label = managerName || "Quản lý cơ sở";
+    return { isSelf: false, key: `MANAGER:${label}`, label, kind: "mgr" };
+  }
+  return { isSelf: false, key: "AI", label: "Trợ lý AI VietPeace", kind: "ai" };
+}
+
+const RATING_LABELS = {
+  1: "Rất không hài lòng",
+  2: "Không hài lòng",
+  3: "Cần cải thiện",
+  4: "Hài lòng",
+  5: "Rất hài lòng",
+};
+
+function RateTriggerButton({ buttonRef, isOpen, controlsId, onClick }) {
+  return (
+    <button
+      ref={buttonRef}
+      type="button"
+      className={`vps-rate-trigger-btn${isOpen ? " is-open" : ""}`}
+      aria-expanded={isOpen}
+      aria-controls={controlsId}
+      onClick={onClick}
+    >
+      <Star size={12} fill="currentColor" />
+      <span>Đánh giá</span>
+    </button>
+  );
+}
+
+function HandoffRatingBox({ handoffId, managerName, onSubmit, onDismiss }) {
+  const [stars, setStars] = useState(0);
+  const [hoverStar, setHoverStar] = useState(0);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
 
+  const displayStars = hoverStar || stars;
+  const isLowRating = stars >= 1 && stars <= 3;
+
   async function handleSubmit(e) {
     e.preventDefault();
+    if (stars < 1 || stars > 5) {
+      setErr("Vui lòng chọn từ 1 đến 5 sao.");
+      return;
+    }
     setSubmitting(true);
     setErr("");
     try {
@@ -74,34 +144,68 @@ function HandoffRatingBox({ handoffId, onSubmit }) {
     <form className="vps-rating-card" onSubmit={handleSubmit}>
       <div className="vps-rating-head">
         <Star size={15} fill="currentColor" />
-        <span>Đánh giá trải nghiệm với Quản lý cơ sở</span>
+        <span>
+          Đánh giá Quản lý {managerName ? <b>{managerName}</b> : "cơ sở"}
+        </span>
+        {onDismiss && (
+          <button
+            type="button"
+            className="vps-rating-close"
+            onClick={onDismiss}
+            title="Thu gọn tạm thời"
+            aria-label="Thu gọn khung đánh giá"
+          >
+            <X size={13} />
+          </button>
+        )}
       </div>
       <div className="vps-rating-stars" role="radiogroup" aria-label="Chọn số sao đánh giá">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
             type="button"
-            className={`vps-star-btn ${stars >= n ? "active" : ""}`}
-            onClick={() => setStars(n)}
+            role="radio"
+            aria-checked={stars === n}
+            className={`vps-star-btn ${displayStars >= n ? "active" : ""}`}
+            onMouseEnter={() => setHoverStar(n)}
+            onMouseLeave={() => setHoverStar(0)}
+            onClick={() => {
+              setStars(n);
+              setErr("");
+            }}
             aria-label={`${n} sao`}
           >
-            <Star size={18} fill={stars >= n ? "currentColor" : "none"} />
+            <Star size={19} fill={displayStars >= n ? "currentColor" : "none"} />
           </button>
         ))}
-        <span className="vps-rating-score">{stars}/5</span>
+        <span className="vps-rating-score">
+          {displayStars > 0 ? `${displayStars}/5 · ${RATING_LABELS[displayStars]}` : "Chọn 1–5 sao"}
+        </span>
       </div>
+      {isLowRating && (
+        <div className="vps-rating-low-hint">
+          <AlertCircle size={13} />
+          <span>Đánh giá 1–3 sao sẽ được gửi báo cáo tới Quản trị viên VietPeace Stay để kiểm tra.</span>
+        </div>
+      )}
       <input
         type="text"
         className="vps-rating-input"
-        placeholder="Nhận xét thêm về thái độ hoặc tốc độ hỗ trợ (không bắt buộc)…"
+        placeholder={
+          isLowRating
+            ? "Chia sẻ lý do chưa hài lòng để Quản trị viên hỗ trợ xử lý…"
+            : "Nhận xét thêm về thái độ hoặc tốc độ hỗ trợ (không bắt buộc)…"
+        }
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         maxLength={500}
       />
       {err && <div className="vps-inline-alert">{err}</div>}
-      <button type="submit" className="vps-btn-primary-xs" disabled={submitting}>
-        {submitting ? "Đang gửi…" : "Gửi đánh giá"}
-      </button>
+      <div className="vps-rating-actions">
+        <button type="submit" className="vps-btn-primary-xs" disabled={submitting || stars < 1}>
+          {submitting ? "Đang gửi…" : "Gửi đánh giá"}
+        </button>
+      </div>
     </form>
   );
 }
@@ -115,10 +219,8 @@ export default function ChatWidget() {
     greetingText,
     featuredLocations,
     pageContext,
-    conversations,
     activeConversation,
     activeConversationId,
-    setActiveConversationId,
     activeMessages,
     activeStreaming,
     activeTypingName,
@@ -133,19 +235,59 @@ export default function ChatWidget() {
     selectPropertyInChat,
     requestHumanHandoff,
     cancelHumanHandoff,
+    returnFromManagerToAi,
     endGuestSession,
     submitRating,
     emitTyping,
   } = useChat();
 
   const [draft, setDraft] = useState("");
-  const [showConvSwitcher, setShowConvSwitcher] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [tooltipDismissed, setTooltipDismissed] = useState(false);
+  const [openRatingTarget, setOpenRatingTarget] = useState(null);
+  const [dismissedSubmittedIds, setDismissedSubmittedIds] = useState([]);
 
+  const launcherTooltipId = useId();
+  const ratingPopoverId = useId();
   const launcherRef = useRef(null);
   const inputRef = useRef(null);
   const scrollEndRef = useRef(null);
+  const rateTriggerRef = useRef(null);
+  const ratingPopoverRef = useRef(null);
   const typingTimerRef = useRef(null);
+
+  const waitSecs = secondsRemaining(activeConversation?.managerWaitExpiresAt, nowMs);
+  const guestAiSecs = secondsRemaining(activeConversation?.guestAiCloseAt, nowMs);
+
+  const isResolved = activeConversation?.status === "RESOLVED";
+  const handlingMode = isResolved ? "AI" : activeConversation?.handlingMode || "AI";
+  const isGuestTemp =
+    !isAuthenticatedCustomer && activeConversation?.retentionState === "TEMPORARY";
+  const isHumanInvolved =
+    handlingMode === "WAITING_HUMAN" ||
+    handlingMode === "HUMAN" ||
+    (!isResolved && Boolean(activeConversation?.currentHandoffId));
+
+  const rateableHandoffId =
+    activeConversation?.pendingRatingHandoffId ||
+    (activeConversation?.currentHandoffId &&
+    activeConversation?.handoffFirstHumanReplyAt &&
+    !activeConversation?.hasRatedHandoff
+      ? Number(activeConversation.currentHandoffId)
+      : null);
+
+  const canRateHandoff = Boolean(isAuthenticatedCustomer && rateableHandoffId);
+  const showRateTrigger = Boolean(rateableHandoffId);
+  const isRatingOpen = Boolean(
+    showRateTrigger &&
+      openRatingTarget &&
+      Number(openRatingTarget.convId) === Number(activeConversationId) &&
+      Number(openRatingTarget.handoffId) === Number(rateableHandoffId),
+  );
+  const submittedRating = activeConversation?.lastSubmittedRating || null;
+  const showSubmittedRatingCard = Boolean(
+    submittedRating && !dismissedSubmittedIds.includes(Number(submittedRating.handoffId)),
+  );
 
   // Live 1s countdown clock for Guest 3m / Manager 5m timers
   useEffect(() => {
@@ -155,7 +297,19 @@ export default function ChatWidget() {
     return () => clearInterval(id);
   }, [isOpen, activeConversation?.managerWaitExpiresAt, activeConversation?.guestAiCloseAt]);
 
-  // Auto scroll when new messages / deltas appear
+  // Dismiss top rating popover when clicking/tapping outside it
+  useEffect(() => {
+    if (!isOpen || !isRatingOpen) return undefined;
+    function handleOutsidePointerDown(e) {
+      if (ratingPopoverRef.current?.contains(e.target)) return;
+      if (rateTriggerRef.current?.contains(e.target)) return;
+      setOpenRatingTarget(null);
+    }
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    return () => document.removeEventListener("pointerdown", handleOutsidePointerDown);
+  }, [isOpen, isRatingOpen]);
+
+  // Auto scroll when new messages / deltas / guide appear
   useEffect(() => {
     if (!isOpen) return;
     scrollEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -173,6 +327,11 @@ export default function ChatWidget() {
   function handleDrawerKeyDown(e) {
     if (e.key === "Escape") {
       e.stopPropagation();
+      if (isRatingOpen) {
+        setOpenRatingTarget(null);
+        setTimeout(() => rateTriggerRef.current?.focus(), 20);
+        return;
+      }
       closeChatWidget();
       setTimeout(() => launcherRef.current?.focus(), 30);
     }
@@ -203,22 +362,21 @@ export default function ChatWidget() {
     await sendMessage(text);
   }
 
-  const waitSecs = secondsRemaining(activeConversation?.managerWaitExpiresAt, nowMs);
-  const guestAiSecs = secondsRemaining(activeConversation?.guestAiCloseAt, nowMs);
+  function toggleRatingPopover(handoffId) {
+    const hid = Number(handoffId);
+    const cid = Number(activeConversationId);
+    if (!hid || !cid) return;
+    setOpenRatingTarget((prev) =>
+      prev && Number(prev.convId) === cid && Number(prev.handoffId) === hid
+        ? null
+        : { convId: cid, handoffId: hid },
+    );
+  }
 
-  const handlingMode = activeConversation?.handlingMode || "AI";
-  const isGuestTemp =
-    !isAuthenticatedCustomer && activeConversation?.retentionState === "TEMPORARY";
-  const isHumanInvolved =
-    handlingMode === "WAITING_HUMAN" ||
-    handlingMode === "HUMAN" ||
-    Boolean(activeConversation?.currentHandoffId);
-
-  const canRateHandoff =
-    isAuthenticatedCustomer &&
-    Boolean(activeConversation?.currentHandoffId) &&
-    Boolean(activeConversation?.handoffFirstHumanReplyAt) &&
-    !activeConversation?.hasRatedHandoff;
+  async function handleRatingSubmit(handoffId, ratingPayload) {
+    await submitRating(handoffId, ratingPayload);
+    setOpenRatingTarget(null);
+  }
 
   // Find last outgoing message (GUEST or CUSTOMER) to display delivery/read status pill cleanly
   const lastOutgoingIdx = (() => {
@@ -229,23 +387,9 @@ export default function ChatWidget() {
     return -1;
   })();
 
-  const quickPrompts =
-    pageContext.pageType === "ACCOMMODATION_DETAIL"
-      ? [
-          "Cơ sở này còn phòng trống cuối tuần này cho 2 người không?",
-          "Giờ nhận phòng, trả phòng và chính sách hủy thế nào?",
-          "Có tiện ích miễn phí và phụ thu gì không?",
-        ]
-      : pageContext.pageType === "LOCATION_SEARCH"
-        ? [
-            "Gợi ý giúp mình 3 cơ sở tốt nhất ở khu vực này",
-            "Có resort hoặc homestay nào gần biển / trung tâm giá tốt?",
-          ]
-        : [
-            "Tôi muốn tìm khách sạn / resort cho 2 người cuối tuần này",
-            "VietPeace Stay có cơ sở ở những thành phố nào?",
-            ...(isAuthenticatedCustomer ? ["Kiểm tra các đơn đặt phòng của tôi"] : []),
-          ];
+  const hasCustomerMessage = activeMessages.some(
+    (m) => m.senderType === "CUSTOMER" || m.senderType === "GUEST"
+  );
 
   return (
     <div className="vps-chat-root">
@@ -256,30 +400,54 @@ export default function ChatWidget() {
 
       {/* Floating Concierge Launcher */}
       {!isOpen && (
-        <button
-          ref={launcherRef}
-          type="button"
-          className="vps-chat-launcher"
-          onClick={() => openChatWidget({})}
-          aria-label="Mở hộp thoại tư vấn VietPeace Stay"
+        <div
+          className={`vps-launcher-wrap${totalUnread > 0 ? " has-unread" : ""}`}
+          data-tooltip-dismissed={tooltipDismissed ? "true" : "false"}
+          onMouseLeave={() => setTooltipDismissed(false)}
+          onBlur={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              setTooltipDismissed(false);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setTooltipDismissed(true);
+            }
+          }}
         >
-          <span className="vps-launcher-icon">
-            <MessageCircle size={22} />
-          </span>
-          <span className="vps-launcher-text">
-            <strong>Tư vấn trực tuyến</strong>
-            <small>
-              {pageContext.pageType === "ACCOMMODATION_DETAIL" && pageContext.accommodationName
-                ? pageContext.accommodationName
-                : "AI & Quản lý 24/7"}
-            </small>
-          </span>
-          {totalUnread > 0 && (
-            <span className="vps-launcher-badge" aria-label={`${totalUnread} tin nhắn chưa đọc`}>
-              {totalUnread > 9 ? "9+" : totalUnread}
+          <div id={launcherTooltipId} role="tooltip" className="vps-launcher-tooltip">
+            <strong>Chat với VietPeace</strong>
+            {pageContext.pageType === "ACCOMMODATION_DETAIL" && pageContext.accommodationName && (
+              <small>{pageContext.accommodationName}</small>
+            )}
+          </div>
+          <button
+            ref={launcherRef}
+            type="button"
+            className="vps-chat-launcher"
+            onClick={() => openChatWidget({})}
+            aria-label={
+              totalUnread > 0
+                ? `Mở hộp thoại tư vấn VietPeace Stay (${totalUnread} tin nhắn chưa đọc)`
+                : "Mở hộp thoại tư vấn VietPeace Stay"
+            }
+            aria-describedby={launcherTooltipId}
+          >
+            <span className="vps-launcher-halo" aria-hidden="true" />
+            <span className="vps-launcher-surface" aria-hidden="true">
+              <span className="vps-launcher-sheen" />
             </span>
-          )}
-        </button>
+            <span className="vps-launcher-icon" aria-hidden="true">
+              <ConciergeChatLogo />
+            </span>
+            <span className="vps-launcher-online-dot" aria-hidden="true" />
+            {totalUnread > 0 && (
+              <span className="vps-launcher-badge" aria-hidden="true">
+                {totalUnread > 9 ? "9+" : totalUnread}
+              </span>
+            )}
+          </button>
+        </div>
       )}
 
       {/* Main Chat Panel Drawer */}
@@ -294,7 +462,7 @@ export default function ChatWidget() {
           {/* Header */}
           <header className="vps-chat-header">
             <div className="vps-chat-header-main">
-              <div className="vps-header-avatar">
+              <div className={`vps-header-avatar${handlingMode === "HUMAN" ? " is-human" : ""}`}>
                 {handlingMode === "HUMAN" ? <UserCheck size={19} /> : <Bot size={19} />}
               </div>
               <div className="vps-header-titles">
@@ -323,18 +491,6 @@ export default function ChatWidget() {
             </div>
 
             <div className="vps-header-controls">
-              {conversations.length > 1 && (
-                <button
-                  type="button"
-                  className="vps-icon-btn"
-                  onClick={() => setShowConvSwitcher((s) => !s)}
-                  aria-label="Chuyển hội thoại"
-                  title="Chuyển đổi giữa các cuộc trò chuyện"
-                >
-                  <Layers size={16} />
-                  <span className="vps-count-pill">{conversations.length}</span>
-                </button>
-              )}
               <button
                 type="button"
                 className="vps-icon-btn"
@@ -349,39 +505,6 @@ export default function ChatWidget() {
             </div>
           </header>
 
-          {/* Multi-conversation switcher dropdown */}
-          {showConvSwitcher && conversations.length > 0 && (
-            <div className="vps-conv-switcher">
-              {conversations.map((c) => {
-                const isSelected = Number(c.id) === Number(activeConversationId);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`vps-conv-switch-item ${isSelected ? "active" : ""}`}
-                    onClick={() => {
-                      setActiveConversationId(c.id);
-                      setShowConvSwitcher(false);
-                    }}
-                  >
-                    {c.accommodationCoverImage && (
-                      <img
-                        src={resolveMediaUrl(c.accommodationCoverImage)}
-                        alt={c.accommodationName || "VietPeace Stay"}
-                        className="vps-conv-switch-thumb"
-                      />
-                    )}
-                    <div className="vps-conv-switch-meta">
-                      <strong>{c.accommodationName || "Tư vấn chung VietPeace Stay"}</strong>
-                      <small>{c.lastMessagePreview || "Hội thoại đang mở"}</small>
-                    </div>
-                    {c.unreadCount > 0 && <span className="vps-mini-unread">{c.unreadCount}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
           {/* Action / Status Strip */}
           <div className="vps-chat-subbar">
             {handlingMode === "AI" && (
@@ -392,29 +515,42 @@ export default function ChatWidget() {
                   onClick={requestHumanHandoff}
                   disabled={loading}
                 >
-                  <UserCheck size={14} />
-                  <span>Kết nối nhân viên / Quản lý</span>
+                  <UserCheck size={13} />
+                  <span>Kết nối Quản lý</span>
                 </button>
 
-                {isGuestTemp && (
-                  <div className="vps-guest-actions">
-                    {activeConversation?.guestAiCloseAt && guestAiSecs > 0 && (
-                      <span
-                        className="vps-timer-chip"
-                        title="Phiên khách vãng lai tự động đóng & xóa sau 3 phút không nhắn thêm"
-                      >
-                        <Clock size={12} /> {formatCountdownSeconds(guestAiSecs)}
-                      </span>
+                {(showRateTrigger || (isGuestTemp && hasCustomerMessage)) && (
+                  <div className="vps-subbar-right">
+                    {showRateTrigger && (
+                      <RateTriggerButton
+                        buttonRef={rateTriggerRef}
+                        isOpen={isRatingOpen}
+                        controlsId={ratingPopoverId}
+                        onClick={() => toggleRatingPopover(rateableHandoffId)}
+                      />
                     )}
-                    <button
-                      type="button"
-                      className="vps-end-guest-btn"
-                      onClick={endGuestSession}
-                      title="Kết thúc ngay và xóa dữ liệu phiên tạm thời"
-                    >
-                      <LogOut size={12} />
-                      <span>Kết thúc</span>
-                    </button>
+
+                    {isGuestTemp && hasCustomerMessage && (
+                      <div className="vps-guest-actions">
+                        {activeConversation?.guestAiCloseAt && guestAiSecs > 0 && (
+                          <span
+                            className="vps-timer-chip"
+                            title="Cuộc trò chuyện tự động kết thúc sau 3 phút không có tin nhắn mới"
+                          >
+                            <Clock size={12} /> {formatCountdownSeconds(guestAiSecs)}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          className="vps-end-guest-btn"
+                          onClick={endGuestSession}
+                          title="Kết thúc cuộc trò chuyện"
+                        >
+                          <LogOut size={12} />
+                          <span>Kết thúc</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </>
@@ -437,11 +573,100 @@ export default function ChatWidget() {
 
             {handlingMode === "HUMAN" && (
               <div className="vps-human-strip">
-                <CheckCircle2Icon />
-                <span>Bạn đang chat trực tiếp cùng Quản lý cơ sở</span>
+                <div className="vps-human-strip-left">
+                  <CheckCircle2Icon />
+                  <span>
+                    Quản lý {activeConversation?.assignedManagerName || "cơ sở"}
+                  </span>
+                </div>
+                <div className="vps-subbar-right">
+                  {showRateTrigger && (
+                    <RateTriggerButton
+                      buttonRef={rateTriggerRef}
+                      isOpen={isRatingOpen}
+                      controlsId={ratingPopoverId}
+                      onClick={() => toggleRatingPopover(rateableHandoffId)}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className="vps-return-ai-btn"
+                    onClick={returnFromManagerToAi}
+                    disabled={loading}
+                  >
+                    Quay lại AI
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Collapsible Rating Disclosure Popover anchored to top subbar */}
+            {isRatingOpen && (
+              <div
+                id={ratingPopoverId}
+                ref={ratingPopoverRef}
+                className="vps-rating-popover"
+                role="dialog"
+                aria-label="Đánh giá Quản lý cơ sở"
+              >
+                {canRateHandoff ? (
+                  <HandoffRatingBox
+                    handoffId={rateableHandoffId}
+                    managerName={
+                      activeConversation?.pendingRatingManagerName ||
+                      activeConversation?.assignedManagerName
+                    }
+                    onSubmit={handleRatingSubmit}
+                    onDismiss={() => {
+                      setOpenRatingTarget(null);
+                      setTimeout(() => rateTriggerRef.current?.focus(), 20);
+                    }}
+                  />
+                ) : (
+                  <div className="vps-rating-guest-note">
+                    <Star size={14} />
+                    <span>Đăng nhập tài khoản VietPeace Stay để gửi đánh giá 1–5 sao cho Quản lý cơ sở.</span>
+                    <button
+                      type="button"
+                      className="vps-rating-close"
+                      onClick={() => {
+                        setOpenRatingTarget(null);
+                        setTimeout(() => rateTriggerRef.current?.focus(), 20);
+                      }}
+                      aria-label="Đóng hộp thoại đánh giá"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
+
+          {/* Compact Submitted Rating Confirmation Strip below top bar */}
+          {showSubmittedRatingCard && (
+            <div className="vps-rating-done-banner">
+              <div className="vps-rating-done-head">
+                <Star size={13} fill="currentColor" />
+                <span>
+                  Đã gửi đánh giá {submittedRating.rating}/5 sao
+                  {Number(submittedRating.rating) <= 3
+                    ? " · Đã chuyển báo cáo tới Quản trị viên"
+                    : " · Cảm ơn Quý khách!"}
+                </span>
+                <button
+                  type="button"
+                  className="vps-rating-close"
+                  onClick={() =>
+                    setDismissedSubmittedIds((prev) => [...prev, Number(submittedRating.handoffId)])
+                  }
+                  aria-label="Đóng thông báo đánh giá"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Notice banner if any */}
           {statusNotice && (
@@ -458,14 +683,24 @@ export default function ChatWidget() {
           <div className="vps-chat-stream">
             {activeMessages.length === 0 && !loading && (
               <div className="vps-msg-row bot">
-                <div className="vps-msg-bubble bot">
-                  <p>{greetingText || "Xin chào Quý khách! Mình là Trợ lý ảo của VietPeace Stay."}</p>
+                <div className="vps-msg-col">
+                  <div className="vps-msg-sender-row">
+                    <span className="vps-msg-avatar-inline ai" aria-hidden="true">
+                      <Sparkles size={11} />
+                    </span>
+                    <span className="vps-msg-sender">Trợ lý AI VietPeace</span>
+                  </div>
+                  <div className="vps-msg-bubble bot">
+                    <p>
+                      {greetingText ||
+                        "Xin chào! Mình là Trợ lý AI của VietPeace Stay. Bạn đang dự định đi đâu để mình gợi ý phòng và báo giá nhanh nhé? Nếu cần trao đổi trực tiếp, bạn hãy nhấn Kết nối Quản lý ở phía trên."}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
 
             {activeMessages.map((msg, index) => {
-              const isSelf = msg.senderType === "CUSTOMER" || msg.senderType === "GUEST";
               const isSystem = msg.senderType === "SYSTEM";
 
               if (isSystem) {
@@ -476,25 +711,42 @@ export default function ChatWidget() {
                 );
               }
 
-              const showReceipt = isSelf && index === lastOutgoingIdx && isHumanInvolved;
+              const meta = getSenderMeta(msg.senderType, activeConversation?.assignedManagerName);
+              const prevMsg = index > 0 ? activeMessages[index - 1] : null;
+              const prevMeta =
+                prevMsg && prevMsg.senderType !== "SYSTEM"
+                  ? getSenderMeta(prevMsg.senderType, activeConversation?.assignedManagerName)
+                  : null;
+              const nextMsg = index < activeMessages.length - 1 ? activeMessages[index + 1] : null;
+              const nextMeta =
+                nextMsg && nextMsg.senderType !== "SYSTEM"
+                  ? getSenderMeta(nextMsg.senderType, activeConversation?.assignedManagerName)
+                  : null;
+
+              const isGroupedWithPrev = Boolean(prevMeta && prevMeta.key === meta.key);
+              const isGroupedWithNext = Boolean(nextMeta && nextMeta.key === meta.key);
+              const showSenderHeader = !meta.isSelf && !isGroupedWithPrev;
+
+              const showReceipt = meta.isSelf && index === lastOutgoingIdx && isHumanInvolved;
               const receipt = showReceipt
                 ? getOutgoingReceiptMeta(msg, activeConversation?.counterpartyDelivery)
                 : null;
 
               return (
-                <div key={msg.id || msg.clientMessageId || index} className={`vps-msg-row ${isSelf ? "self" : "bot"}`}>
-                  {!isSelf && (
-                    <div className={`vps-msg-avatar ${msg.senderType === "MANAGER" ? "mgr" : "ai"}`}>
-                      {msg.senderType === "MANAGER" ? <UserCheck size={13} /> : <Sparkles size={13} />}
-                    </div>
-                  )}
+                <div
+                  key={msg.id || msg.clientMessageId || index}
+                  className={`vps-msg-row ${meta.isSelf ? "self" : "bot"}${
+                    isGroupedWithPrev ? " is-grouped" : ""
+                  }${msg.payload ? " has-card" : ""}`}
+                >
                   <div className="vps-msg-col">
-                    {!isSelf && (
-                      <span className="vps-msg-sender">
-                        {msg.senderType === "MANAGER"
-                          ? activeConversation?.assignedManagerName || "Quản lý cơ sở"
-                          : "Trợ lý AI VietPeace Stay"}
-                      </span>
+                    {showSenderHeader && (
+                      <div className="vps-msg-sender-row">
+                        <span className={`vps-msg-avatar-inline ${meta.kind}`} aria-hidden="true">
+                          {meta.kind === "mgr" ? <UserCheck size={11} /> : <Sparkles size={11} />}
+                        </span>
+                        <span className="vps-msg-sender">{meta.label}</span>
+                      </div>
                     )}
                     {msg.payload ? (
                       <MessageCard
@@ -504,7 +756,13 @@ export default function ChatWidget() {
                         onRequestHandoff={requestHumanHandoff}
                       />
                     ) : (
-                      <div className={`vps-msg-bubble ${isSelf ? "self" : msg.senderType === "MANAGER" ? "mgr" : "bot"}`}>
+                      <div
+                        className={`vps-msg-bubble ${
+                          meta.isSelf ? "self" : meta.kind
+                        }${isGroupedWithPrev ? " is-grouped-top" : ""}${
+                          isGroupedWithNext ? " is-grouped-bottom" : ""
+                        }`}
+                      >
                         <div className="vps-msg-text">{renderFormattedText(msg.content)}</div>
                         <span className="vps-msg-time">{formatClockTime(msg.createdAt)}</span>
                       </div>
@@ -526,27 +784,40 @@ export default function ChatWidget() {
             })}
 
             {/* Live AI Streaming Bubble */}
-            {activeStreaming && (
-              <div className="vps-msg-row bot">
-                <div className="vps-msg-avatar ai">
-                  <Sparkles size={13} />
-                </div>
-                <div className="vps-msg-col">
-                  <span className="vps-msg-sender">Trợ lý AI VietPeace Stay đang trả lời…</span>
-                  <div className="vps-msg-bubble bot">
-                    <div className="vps-msg-text">
-                      {activeStreaming.text ? (
-                        renderFormattedText(activeStreaming.text)
-                      ) : (
-                        <span className="vps-typing-dots">
-                          <i /> <i /> <i />
+            {activeStreaming && (() => {
+              const lastMsg = activeMessages.length > 0 ? activeMessages[activeMessages.length - 1] : null;
+              const lastMeta =
+                lastMsg && lastMsg.senderType !== "SYSTEM"
+                  ? getSenderMeta(lastMsg.senderType, activeConversation?.assignedManagerName)
+                  : null;
+              const isStreamingGrouped = Boolean(lastMeta && lastMeta.key === "AI");
+
+              return (
+                <div className={`vps-msg-row bot${isStreamingGrouped ? " is-grouped" : ""}`}>
+                  <div className="vps-msg-col">
+                    {!isStreamingGrouped && (
+                      <div className="vps-msg-sender-row">
+                        <span className="vps-msg-avatar-inline ai" aria-hidden="true">
+                          <Sparkles size={11} />
                         </span>
-                      )}
+                        <span className="vps-msg-sender">Trợ lý AI VietPeace đang trả lời…</span>
+                      </div>
+                    )}
+                    <div className={`vps-msg-bubble bot${isStreamingGrouped ? " is-grouped-top" : ""}`}>
+                      <div className="vps-msg-text">
+                        {activeStreaming.text ? (
+                          renderFormattedText(activeStreaming.text)
+                        ) : (
+                          <span className="vps-typing-dots">
+                            <i /> <i /> <i />
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Manager typing indicator */}
             {activeTypingName && !activeStreaming && (
@@ -555,9 +826,11 @@ export default function ChatWidget() {
               </div>
             )}
 
-            {/* Interactive 2-step Handoff Guide inside chatbox */}
+            {/* Context-aware Handoff Guide inside chatbox */}
             {handoffGuideState.open && (
               <HandoffGuideCard
+                key={`${handoffGuideState.mode || "PICK_LOCATION"}-${handoffGuideState.location?.id || "all"}-${handoffGuideState.property?.accommodationId || ""}`}
+                guideState={handoffGuideState}
                 initialLocations={featuredLocations}
                 onSelectProperty={(accomId, opts) => {
                   setHandoffGuideState({ open: false });
@@ -567,57 +840,35 @@ export default function ChatWidget() {
               />
             )}
 
-            {/* Post-Handoff 5-star Rating */}
-            {canRateHandoff && (
-              <HandoffRatingBox
-                handoffId={activeConversation.currentHandoffId}
-                onSubmit={submitRating}
-              />
-            )}
-
             <div ref={scrollEndRef} />
           </div>
 
-          {/* Quick Suggested Prompts */}
-          {handlingMode === "AI" && activeMessages.length <= 4 && !handoffGuideState.open && (
-            <div className="vps-quick-chips">
-              {quickPrompts.map((promptText, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  className="vps-quick-chip"
-                  onClick={() => sendMessage(promptText)}
-                >
-                  {promptText}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* IME-Safe Composer */}
           <form className="vps-chat-composer" onSubmit={handleSubmit}>
-            <textarea
-              ref={inputRef}
-              rows={1}
-              className="vps-chat-input"
-              placeholder={
-                handlingMode === "HUMAN"
-                  ? "Nhắn tin trực tiếp với Quản lý cơ sở…"
-                  : "Hỏi phòng, báo giá hoặc chính sách VietPeace Stay…"
-              }
-              value={draft}
-              onChange={handleTextareaChange}
-              onKeyDown={handleComposerKeyDown}
-              aria-label="Nội dung tin nhắn"
-            />
-            <button
-              type="submit"
-              className="vps-send-btn"
-              disabled={!draft.trim()}
-              aria-label="Gửi tin nhắn"
-            >
-              <Send size={17} />
-            </button>
+            <div className="vps-composer-box">
+              <textarea
+                ref={inputRef}
+                rows={1}
+                className="vps-chat-input"
+                placeholder={
+                  handlingMode === "HUMAN"
+                    ? "Nhắn trực tiếp với Quản lý cơ sở…"
+                    : "Hỏi phòng, báo giá hoặc dịch vụ…"
+                }
+                value={draft}
+                onChange={handleTextareaChange}
+                onKeyDown={handleComposerKeyDown}
+                aria-label="Nội dung tin nhắn"
+              />
+              <button
+                type="submit"
+                className="vps-send-btn"
+                disabled={!draft.trim()}
+                aria-label="Gửi tin nhắn"
+              >
+                <Send size={16} />
+              </button>
+            </div>
           </form>
         </section>
       )}

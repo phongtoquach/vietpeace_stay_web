@@ -1,19 +1,63 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { getStorage, setStorage, removeStorage } from '../utils/bookingUtils.js';
-
 const AuthContext = createContext();
 
-//const API_URL = "http://localhost:3002/api/web";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:3002/api/web").replace(/\/+$/, "");
 
-const STORAGE_KEY = 'vietpeacestay_current_user';
+async function postCustomerAuthAction(endpoint, payload, fallbackErrorCode, fallbackMessage, onUnauthorized) {
+    try {
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            credentials: "include",
+            body: JSON.stringify(payload),
+        });
+
+        const responseData = await response.json().catch(() => ({}));
+
+        if (response.status === 401) {
+            onUnauthorized?.();
+            return {
+                success: false,
+                errorCode: responseData.errorCode || "NO_USER_SESSION",
+                message: responseData.message || "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+                errors: responseData.errors || {},
+            };
+        }
+
+        if (!response.ok || !responseData?.success) {
+            return {
+                success: false,
+                errorCode: responseData?.errorCode || fallbackErrorCode,
+                message: responseData?.message || fallbackMessage,
+                errors: responseData?.errors || {},
+            };
+        }
+
+        return {
+            success: true,
+            message: responseData.message || "",
+            data: responseData.data || null,
+        };
+    } catch (error) {
+        console.error(`[AuthProvider - ${endpoint}] Failed:`, error);
+        return {
+            success: false,
+            errorCode: "NETWORK_ERROR",
+            message: "Không thể kết nối đến máy chủ. Vui lòng thử lại sau.",
+            errors: {},
+        };
+    }
+}
 
 export function AuthProvider({ children }) {
 
     console.log("[AuthProvider] Vừa vào hàm provider : AuthProvider !");
 
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    const apiBaseUrl = API_BASE_URL;
     //console.log("[AuthProvider] Value của biến apiBaseUrl (env VITE_API_BASE_URL) : " + apiBaseUrl);
 
     const { pathname, search } = useLocation();
@@ -213,29 +257,66 @@ export function AuthProvider({ children }) {
     }, []);
 
 
-    /* CODE GOC */
-    const [currentUser, setCurrentUser] = useState(() => {
-        return getStorage(STORAGE_KEY, {
-            id: 101,
-            fullName: 'Nguyễn Văn An',
-            email: 'nguyenvana@gmail.com',
-            phone: '0912345678',
-            role: 'CUSTOMER',
-            createdAt: '2026-01-15'
-        });
-    });
+    const updateProfile = useCallback(async ({ fullName, displayName, phoneNumber, phone } = {}) => {
+        const result = await postCustomerAuthAction(
+            "/customer/profile/update",
+            {
+                fullName,
+                displayName,
+                phoneNumber: phoneNumber ?? phone,
+            },
+            "UPDATE_PROFILE_FAILED",
+            "Không thể cập nhật thông tin tài khoản.",
+            () => setCurrentLoggedInUser(null)
+        );
 
-    /* CODE GOC */
+        if (result.success) {
+            const updatedCustomer = result.data?.customerInfo || result.data;
+            if (updatedCustomer) {
+                setCurrentLoggedInUser((prev) => ({
+                    ...(prev || {}),
+                    ...updatedCustomer,
+                }));
+            }
+        }
+
+        return result;
+    }, []);
+
+    const changePassword = useCallback(async ({ currentPassword, newPassword, confirmPassword } = {}) => {
+        return postCustomerAuthAction(
+            "/customer/change-password",
+            {
+                currentPassword,
+                newPassword,
+                confirmPassword,
+            },
+            "CHANGE_PASSWORD_FAILED",
+            "Không thể đổi mật khẩu.",
+            () => setCurrentLoggedInUser(null)
+        );
+    }, []);
+
     const [toast, setToast] = useState(null);
-    const showToast = (message, type = 'info') => {
+    const toastTimerRef = useRef(null);
+    const showToast = useCallback((message, type = 'info') => {
+        if (toastTimerRef.current) {
+            clearTimeout(toastTimerRef.current);
+        }
         setToast({ id: Date.now(), message, type });
-        setTimeout(() => {
+        toastTimerRef.current = setTimeout(() => {
             setToast(null);
+            toastTimerRef.current = null;
         }, 3500);
-    };
+    }, []);
 
-
-    
+    useEffect(() => {
+        return () => {
+            if (toastTimerRef.current) {
+                clearTimeout(toastTimerRef.current);
+            }
+        };
+    }, []);
 
     return (
         <AuthContext.Provider value={{
@@ -247,8 +328,9 @@ export function AuthProvider({ children }) {
             isRouteUrlChanged,
             currentPathName: pathname,
             logout,
-            currentUser,    // biến cũ
-            showToast       // biến cũ
+            updateProfile,
+            changePassword,
+            showToast
         }}>
             {children}
             {toast && (

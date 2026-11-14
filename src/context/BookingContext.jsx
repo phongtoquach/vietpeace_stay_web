@@ -126,7 +126,7 @@ export function BookingProvider({ children }) {
         userId: currentUser?.id || 101,
         userFullName: currentUser?.fullName || 'Khách hàng',
         userEmail: currentUser?.email || '',
-        userPhone: currentUser?.phone || '',
+        userPhone: currentUser?.phoneNumber || currentUser?.phone || '',
         accommodationId: hotel.id,
         accommodationName: hotel.name,
         address: hotel.address,
