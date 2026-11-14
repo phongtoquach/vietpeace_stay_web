@@ -8,6 +8,7 @@ import { BookingProvider } from './context/BookingContext.jsx';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 
 import AccommodationSearchPage from './pages/AccommodationSearchPage';
 import AccommodationDetailPage from './pages/AccommodationDetailPage';
@@ -51,6 +52,7 @@ function App() {
                                     <Route path="/" element={<HomePage />} />
                                     <Route path="/login" element={<LoginPage />} />
                                     <Route path="/register" element={<RegisterPage />} />
+                                    <Route path="/verify-email" element={<VerifyEmailPage />} />
 
                                     <Route path="/search-accommodations" element={<AccommodationSearchPage />} />
                                     <Route path="/accommodation-detail" element={<AccommodationDetailPage />} />

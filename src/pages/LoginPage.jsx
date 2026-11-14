@@ -1,17 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 //import { useAuth } from '../context/AuthContext.jsx';
 
-import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import UnverifiedEmailBanner from '../components/UnverifiedEmailBanner.jsx';
+import { getWebApiBaseUrl } from '../utils/authApi.js';
+
+function resolveSafeReturnUrl(rawUrl) {
+    if (typeof rawUrl === 'string' && rawUrl.startsWith('/') && !rawUrl.startsWith('//')) {
+        return rawUrl;
+    }
+    return '/';
+}
 
 export default function LoginPage() {
     console.log("[LoginPage] Vừa vào hàm component LoginPage !");
 
     const { state } = useLocation();
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    //const [searchParams] = useSearchParams();
     //const { login } = useAuth();
-    const fromUrl = state?.from ?? "/";
+    const queryReturnUrl = searchParams.get('returnUrl');
+    const fromUrl = resolveSafeReturnUrl(state?.from ?? queryReturnUrl);
+    const registerHref = queryReturnUrl
+        ? `/register?returnUrl=${encodeURIComponent(fromUrl)}`
+        : '/register';
 
     console.log("[LoginPage] Value của biến fromUrl : " + fromUrl);
 
@@ -22,6 +35,7 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [bannerError, setBannerError] = useState('');
     const [errorsDetail, setErrorsDetail] = useState({});
+    const [unverifiedEmail, setUnverifiedEmail] = useState('');
 
     //const returnUrl = searchParams.get('returnUrl') || '/';
 
@@ -41,6 +55,7 @@ export default function LoginPage() {
         if (isLoading) return;
         setBannerError('');
         setErrorsDetail({});
+        setUnverifiedEmail('');
 
         const fieldErrors = {};
 
@@ -68,7 +83,7 @@ export default function LoginPage() {
 
         try {
             const api_response = await fetch(
-                `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api/web').replace(/\/$/, '')}/auth/login`,
+                `${getWebApiBaseUrl()}/auth/login`,
                 {
                     method: 'POST',
                     headers: {
@@ -87,6 +102,9 @@ export default function LoginPage() {
             if (!api_response.ok || !response_data.success) {
                 setErrorsDetail(response_data.errors || response_data.errorsDetail || {},);
                 setBannerError(response_data.message || 'Không thể đăng nhập. Vui lòng thử lại.',);
+                if (response_data.errorCode === 'EMAIL_NOT_VERIFIED') {
+                    setUnverifiedEmail(emailVal);
+                }
                 return;
             }
 
@@ -120,22 +138,11 @@ export default function LoginPage() {
                 </div>
 
                 {/* Banner Error if any */}
-                {bannerError && (
-                    <div
-                        className="auth-banner-error"
-                        role="alert"
-                        style={{ marginBottom: '1rem' }}
-                    >
-                        <AlertCircle
-                            style={{
-                                width: '16px',
-                                height: '16px',
-                                flexShrink: 0,
-                            }}
-                        />
-                        <span>{bannerError}</span>
-                    </div>
-                )}
+                <UnverifiedEmailBanner
+                    key={unverifiedEmail || bannerError || 'none'}
+                    bannerError={bannerError}
+                    unverifiedEmail={unverifiedEmail}
+                />
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div>
@@ -243,7 +250,7 @@ export default function LoginPage() {
 
                 <div style={{ paddingTop: '1.5rem', borderTop: '1px solid var(--color-border)', marginTop: '1.5rem', textAlign: 'center', fontSize: '12px', color: 'var(--color-slate)' }}>
                     Chưa có tài khoản?{' '}
-                    <Link to="/register" style={{ color: 'var(--color-navy)', fontWeight: 700, textDecoration: 'underline' }}>
+                    <Link to={registerHref} style={{ color: 'var(--color-navy)', fontWeight: 700, textDecoration: 'underline' }}>
                         Đăng ký thành viên
                     </Link>
                 </div>

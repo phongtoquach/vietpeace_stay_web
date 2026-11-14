@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
-import { X, Lock, Mail, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Lock, Mail, Eye, EyeOff, Loader2 } from 'lucide-react';
+import UnverifiedEmailBanner from './UnverifiedEmailBanner.jsx';
+import { getWebApiBaseUrl } from '../utils/authApi.js';
 
 export default function LoginModal({ isOpen, onClose, returnUrl = '/' }) {
     //const { loginAsync, login, setCurrentLoggedInUser } = useContext(AuthContext);
@@ -13,6 +15,7 @@ export default function LoginModal({ isOpen, onClose, returnUrl = '/' }) {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [bannerError, setBannerError] = useState('');
+    const [unverifiedEmail, setUnverifiedEmail] = useState('');
 
     const [errorsDetail, setErrorsDetail] = useState({});
 
@@ -22,6 +25,7 @@ export default function LoginModal({ isOpen, onClose, returnUrl = '/' }) {
     useEffect(() => {
         if (isOpen) {
             setBannerError('');
+            setUnverifiedEmail('');
             setErrorsDetail({});
             setTimeout(() => {
                 if (emailInputRef.current) {
@@ -62,6 +66,7 @@ export default function LoginModal({ isOpen, onClose, returnUrl = '/' }) {
         if (e) e.preventDefault();
         if (isLoading) return;
         setBannerError('');
+        setUnverifiedEmail('');
         setErrorsDetail({});
 
         const fieldErrors = {};
@@ -90,7 +95,7 @@ export default function LoginModal({ isOpen, onClose, returnUrl = '/' }) {
 
         try {
             const api_response = await fetch(
-                `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002').replace(/\/$/, '')}/auth/login`,
+                `${getWebApiBaseUrl()}/auth/login`,
                 {
                     method: 'POST',
                     headers: {
@@ -114,6 +119,9 @@ export default function LoginModal({ isOpen, onClose, returnUrl = '/' }) {
                     response_data.message ||
                         'Không thể đăng nhập. Vui lòng thử lại.',
                 );
+                if (response_data.errorCode === 'EMAIL_NOT_VERIFIED') {
+                    setUnverifiedEmail(emailVal);
+                }
                 return;
             }
 
@@ -206,22 +214,11 @@ export default function LoginModal({ isOpen, onClose, returnUrl = '/' }) {
                 </div>
 
                 {/* Banner Error if any */}
-                {bannerError && (
-                    <div
-                        className="auth-banner-error"
-                        role="alert"
-                        style={{ marginBottom: '1rem' }}
-                    >
-                        <AlertCircle
-                            style={{
-                                width: '16px',
-                                height: '16px',
-                                flexShrink: 0,
-                            }}
-                        />
-                        <span>{bannerError}</span>
-                    </div>
-                )}
+                <UnverifiedEmailBanner
+                    key={unverifiedEmail || bannerError || 'none'}
+                    bannerError={bannerError}
+                    unverifiedEmail={unverifiedEmail}
+                />
 
                 {/* Login Form */}
                 <form
