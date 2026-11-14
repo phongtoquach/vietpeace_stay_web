@@ -305,6 +305,7 @@ export default function HomePage() {
                   key={accommodation.id}
                   accommodation={accommodation}
                   onOpenGallery={handleOpenGallery}
+                  showAvailabilityPrompt={false}
                 />
               ))
             )}

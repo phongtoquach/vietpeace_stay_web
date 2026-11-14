@@ -68,7 +68,7 @@ function AmenityPill({ amenity }) {
     );
 }
 
-export default function AccommodationCard({ accommodation, hotel, onOpenGallery, searchCriteria = {} }) {
+export default function AccommodationCard({ accommodation, hotel, onOpenGallery, searchCriteria = {}, showAvailabilityPrompt = true }) {
     console.log("[AccommodationCard] Vừa vào hàm component AccommodationCard ! Data của accommodation : ");
     console.log(accommodation);
 
@@ -208,6 +208,24 @@ export default function AccommodationCard({ accommodation, hotel, onOpenGallery,
                         )}
                     </div>
 
+                    {item.is_featured === true && (
+                        <div style={{ marginBottom: '6px' }}>
+                            <span
+                                style={{
+                                    display: 'inline-block',
+                                    padding: '3px 8px',
+                                    borderRadius: '999px',
+                                    backgroundColor: '#FEF3C7',
+                                    color: '#92400E',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                }}
+                            >
+                                Nổi bật
+                            </span>
+                        </div>
+                    )}
+
                     <Link to={detailUrl} className="hotel-card-name">
                         {item.accommodation_name}
                     </Link>
@@ -256,7 +274,7 @@ export default function AccommodationCard({ accommodation, hotel, onOpenGallery,
                         style={{ fontSize: '13px', color: unavailable ? '#B91C1C' : 'var(--color-slate)' }}
                     >
                         {item.is_available === null || item.is_available === undefined
-                            ? 'Chọn ngày để kiểm tra phòng trống.'
+                            ? (showAvailabilityPrompt ? 'Chọn ngày để kiểm tra phòng trống.' : null)
                             : unavailable
                               ? availableRooms === 0
                                   ? 'Không còn phòng trống trong khoảng ngày bạn chọn.'
