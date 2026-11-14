@@ -12,6 +12,8 @@ import AccommodationOverview from '../components/AccommodationOverview';
 import LoginModal from '../components/LoginModal.jsx';
 import RoomTypePriceBreakdownTooltip from '../components/room_types/RoomTypePriceBreakdownTooltip';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useChat } from '../chat/ChatContext.jsx';
+import { MessageCircle as ChatBubbleIcon, UserCheck as ChatManagerIcon } from 'lucide-react';
 import { formatVND, formatDateVN } from '../utils/bookingUtils.js';
 import {
     MapPin,
@@ -112,6 +114,7 @@ export default function AccommodationDetailPage() {
     const location = useLocation();
     const navigate = useNavigate();
     const { currentLoggedInUser } = useAuth();
+    const { openChatWidget } = useChat();
 
     const hotelIdParam = searchParams.get('accommodationId') || '';
     const checkinParam = searchParams.get('checkin') || '';
@@ -730,6 +733,71 @@ export default function AccommodationDetailPage() {
                                 }}
                             />
                             <span>{hotel.address}</span>
+                        </div>
+
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                alignItems: 'center',
+                                gap: '10px',
+                                marginTop: '14px',
+                            }}
+                        >
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    openChatWidget({
+                                        scopeType: 'PROPERTY',
+                                        accommodationId: Number(hotel.id || hotelIdParam),
+                                        forceContextCard: true,
+                                        autoRequestHandoff: false,
+                                    })
+                                }
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '8px 14px',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: '1px solid var(--color-navy)',
+                                    backgroundColor: 'var(--color-white)',
+                                    color: 'var(--color-navy)',
+                                    fontSize: '0.84rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <ChatBubbleIcon size={15} />
+                                <span>Chat tư vấn cơ sở này</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    openChatWidget({
+                                        scopeType: 'PROPERTY',
+                                        accommodationId: Number(hotel.id || hotelIdParam),
+                                        forceContextCard: true,
+                                        autoRequestHandoff: true,
+                                    })
+                                }
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '8px 14px',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: 'none',
+                                    backgroundColor: 'var(--color-navy)',
+                                    color: 'var(--color-white)',
+                                    fontSize: '0.84rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <ChatManagerIcon size={15} />
+                                <span>Gặp Quản lý cơ sở</span>
+                            </button>
                         </div>
                     </div>
                 </div>

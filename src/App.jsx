@@ -30,6 +30,8 @@ import PrivacyPage from './pages/PrivacyPage.jsx';
 import RequireUserLoggedIn from './components/RequireUserLoggedIn';
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
+import { ChatProvider } from './chat/ChatContext.jsx';
+import ChatWidget from './chat/ChatWidget.jsx';
 
 //import Home from "./pages/Home.jsx";
 
@@ -38,8 +40,9 @@ function App() {
         <>
             <AppProvider>
                 <AuthProvider>
-                    <BookingProvider>
-                        <Header />
+                    <ChatProvider>
+                        <BookingProvider>
+                            <Header />
 
                         <div className="app-container">
                             <div className="app-main">
@@ -74,8 +77,10 @@ function App() {
                             </div>
                         </div>
 
-                        <Footer />
-                    </BookingProvider>
+                            <Footer />
+                            <ChatWidget />
+                        </BookingProvider>
+                    </ChatProvider>
                 </AuthProvider>
             </AppProvider>
         </>
