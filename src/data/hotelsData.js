@@ -10,7 +10,7 @@ export const HERO_SLIDES = [
     description: "Hệ thống 25+ khách sạn, resort ven biển và homestay sinh thái do Tập đoàn VietPeace Stay trực tiếp sở hữu và vận hành.",
     badge: "Ưu Đãi Trực Tiếp Từ Tập Đoàn",
     cta: "Khám Phá Chỗ Nghỉ",
-    link: "/search",
+    link: "/search-accommodations",
     image: "/assets/images/hero.jpg",
   },
   {
@@ -19,7 +19,7 @@ export const HERO_SLIDES = [
     description: "Trải nghiệm khu nghỉ dưỡng 5 sao biệt lập tại Vịnh Hạ Long, biển Mỹ Khê Đà Nẵng và đảo ngọc Phú Quốc.",
     badge: "Resort Ven Biển 5 Sao",
     cta: "Khám Phá Resort",
-    link: "/search?propertyType=RESORT",
+    link: "/search-accommodations?accommodationTypeIds=2",
     image: "/assets/images/resort-halong.jpg",
   },
   {
@@ -28,7 +28,7 @@ export const HERO_SLIDES = [
     description: "Phòng nghỉ tinh tế và tầm nhìn panorama đắt giá bên bờ sông Sài Gòn và khu phố cổ thủ đô Hà Nội.",
     badge: "Khách Sạn Thành Phố",
     cta: "Tìm Khách Sạn",
-    link: "/search?propertyType=HOTEL",
+    link: "/search-accommodations?accommodationTypeIds=1",
     image: "/assets/images/hotel-saigon.jpg",
   },
   {
@@ -37,7 +37,7 @@ export const HERO_SLIDES = [
     description: "Bungalow mộc mạc bên hồ sen và rặng núi Thất Sơn huyền bí tại Tri Tôn và Châu Đốc, An Giang.",
     badge: "Homestay Sinh Thái",
     cta: "Khám Phá Homestay",
-    link: "/search?locationId=5",
+    link: "/search-accommodations?locationId=4",
     image: "/assets/images/homestay-mekong.jpg",
   }
 ];

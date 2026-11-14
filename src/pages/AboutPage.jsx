@@ -64,7 +64,7 @@ export default function AboutPage() {
         {/* CTA */}
         <div style={{ textAlign: 'center' }}>
           <Link
-            to="/search"
+            to="/search-accommodations"
             className="btn-primary"
             style={{ padding: '12px 24px', borderRadius: 'var(--radius-lg)' }}
           >

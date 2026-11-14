@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 
 import { AppProvider } from './context/AppContext';
 import { AuthProvider } from './context/AuthContext';
@@ -8,13 +8,13 @@ import { BookingProvider } from './context/BookingContext.jsx';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 
 import AccommodationSearchPage from './pages/AccommodationSearchPage';
 import AccommodationDetailPage from './pages/AccommodationDetailPage';
 
 import CustomerBookingsPage from './pages/CustomerBookingsPage';
 import CustomerBookingDetailPage from './pages/CustomerBookingDetailPage';
-
 
 import ProfilePage from './pages/ProfilePage';
 import CheckoutPage from './pages/CheckoutPage';
@@ -31,6 +31,8 @@ import PrivacyPage from './pages/PrivacyPage.jsx';
 import RequireUserLoggedIn from './components/RequireUserLoggedIn';
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
+import { ChatProvider } from './chat/ChatContext.jsx';
+import ChatWidget from './chat/ChatWidget.jsx';
 
 //import Home from "./pages/Home.jsx";
 
@@ -39,8 +41,9 @@ function App() {
         <>
             <AppProvider>
                 <AuthProvider>
-                    <BookingProvider>
-                        <Header />
+                    <ChatProvider>
+                        <BookingProvider>
+                            <Header />
 
                         <div className="app-container">
                             <div className="app-main">
@@ -49,9 +52,12 @@ function App() {
                                     <Route path="/" element={<HomePage />} />
                                     <Route path="/login" element={<LoginPage />} />
                                     <Route path="/register" element={<RegisterPage />} />
+                                    <Route path="/verify-email" element={<VerifyEmailPage />} />
 
                                     <Route path="/search-accommodations" element={<AccommodationSearchPage />} />
                                     <Route path="/accommodation-detail" element={<AccommodationDetailPage />} />
+                                    <Route path="/search" element={<Navigate to="/search-accommodations" replace />} />
+                                    <Route path="/hotel-detail" element={<Navigate to="/search-accommodations" replace />} />
 
                                     <Route path="/payment/vnpay/return" element={<VnpayReturnPage />} />
                             
@@ -66,6 +72,7 @@ function App() {
                                         <Route path="/profile" element={<ProfilePage />} />
                                         <Route path="/my-account/my-bookings" element={<CustomerBookingsPage />} />
                                         <Route path="/my-account/my-bookings/booking/:bookingId" element={<CustomerBookingDetailPage />} />
+                                        <Route path="/bookings" element={<Navigate to="/my-account/my-bookings" replace />} />
 
                                         <Route path="/checkout" element={<CheckoutPage />} />
                                     </Route>
@@ -73,8 +80,10 @@ function App() {
                             </div>
                         </div>
 
-                        <Footer />
-                    </BookingProvider>
+                            <Footer />
+                            <ChatWidget />
+                        </BookingProvider>
+                    </ChatProvider>
                 </AuthProvider>
             </AppProvider>
         </>

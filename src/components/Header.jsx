@@ -10,6 +10,13 @@ export default function Header() {
     console.log("[Header] Vừa vào hàm component Header !");
 
     const { currentPathName, currentLoggedInUser, isCheckingAuthen, logout } = useContext(AuthContext);
+    const activePath = currentPathName || window.location.pathname;
+    const customerName = currentLoggedInUser
+        ? (currentLoggedInUser.fullName || currentLoggedInUser.fullname || currentLoggedInUser.displayName || '')
+        : '';
+    const customerInitial = customerName
+        ? customerName.trim().split(/\s+/).slice(-1)[0][0].toUpperCase()
+        : 'U';
 
     //const location = useLocation();
     //const navigate = useNavigate();
@@ -70,9 +77,9 @@ export default function Header() {
                 {/* Zone 2: Navigation Links (Desktop) */}
                 <nav className="main-navigation">
                     {navLinks.map((link) => {
-                        const isActive = location.pathname === link.path || 
-                        (link.path === '/search' && location.pathname.startsWith('/search')) ||
-                        (link.path === '/about' && location.pathname === '/about');
+                        const isActive = activePath === link.path ||
+                        (link.path === '/search-accommodations' && (activePath.startsWith('/search') || activePath.startsWith('/accommodation-detail'))) ||
+                        (link.path === '/about' && activePath === '/about');
                         return (
                         <Link
                             key={link.path}
@@ -98,10 +105,10 @@ export default function Header() {
                                 className="user-menu-btn"
                             >
                                 <div className="user-avatar">
-                                    {currentLoggedInUser.displayName ? currentLoggedInUser.displayName.split(' ').slice(-1)[0][0] : 'U'}
+                                    {customerInitial}
                                 </div>
                                 <span className="user-name">
-                                    {currentLoggedInUser.displayName}
+                                    {customerName}
                                 </span>
                                 <ChevronDown style={{ width: '16px', height: '16px', color: 'var(--color-slate)', transition: 'transform 150ms ease', transform: dropdownOpen ? 'rotate(180deg)' : 'none' }} />
                             </button>
@@ -192,7 +199,7 @@ export default function Header() {
                         {currentLoggedInUser ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <div style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--color-slate)' }}>
-                                    Đã đăng nhập: <strong style={{ color: 'var(--color-navy)' }}>{currentLoggedInUser.fullname}</strong>
+                                    Đã đăng nhập: <strong style={{ color: 'var(--color-navy)' }}>{customerName}</strong>
                                 </div>
                                 <Link
                                 to="/profile"
@@ -203,7 +210,7 @@ export default function Header() {
                                     Thông tin cá nhân
                                 </Link>
                                 <Link
-                                to="/bookings"
+                                to="/my-account/my-bookings"
                                 className="mobile-nav-link"
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                                 >
@@ -212,8 +219,7 @@ export default function Header() {
                                 </Link>
                                 <button type="button"
                                 onClick={() => {
-                                    logout();
-                                    //navigate('/');
+                                    logout(currentPathName);
                                 }}
                                 className="mobile-nav-link"
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#E11D48', textAlign: 'left', width: '100%' }}

@@ -1,216 +1,301 @@
-import React, { useState } from 'react';
-import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { useBooking } from '../context/BookingContext.jsx';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useEffect, useState } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Phone,
+  Mail,
+  CreditCard,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  MessageCircle,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react';
 import { formatVND, formatDateVN } from '../utils/bookingUtils.js';
-import { MapPin, Calendar, Clock, AlertCircle, ArrowLeft, X } from 'lucide-react';
+import { formatFullDateTime } from '../chat/chatUtils.js';
+import { useChat } from '../chat/ChatContext.jsx';
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api/web').replace(/\/+$/, '');
 
 export default function BookingDetailPage() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { bookings, cancelBooking } = useBooking();
-  const { showToast } = useAuth();
+  const { openChatWidget } = useChat();
+  const lookupKey = searchParams.get('bookingId') || searchParams.get('code') || searchParams.get('id') || '';
 
-  const code = searchParams.get('code');
-  const booking = bookings.find(b => b.bookingCode === code) || bookings[0];
+  const [booking, setBooking] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  useEffect(() => {
+    let active = true;
+    async function loadDetail() {
+      if (!lookupKey) {
+        setError('Thiếu mã đơn đặt phòng.');
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      setError('');
+      try {
+        const res = await fetch(`${API_BASE_URL}/customer/bookings/${encodeURIComponent(lookupKey)}`, {
+          credentials: 'include',
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.success === false) {
+          throw new Error(json.message || 'Không tìm thấy đơn đặt phòng.');
+        }
+        if (active) {
+          setBooking(json.data);
+        }
+      } catch (err) {
+        if (active) setError(err.message || 'Không thể tải thông tin đơn đặt phòng.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    loadDetail();
+    return () => {
+      active = false;
+    };
+  }, [lookupKey]);
 
-  if (!booking) {
+  if (loading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-        <div style={{ backgroundColor: 'var(--color-white)', padding: '2rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border)', textAlign: 'center', maxWidth: '28rem' }}>
-          <p style={{ fontSize: '1rem', color: 'var(--color-navy)', fontWeight: 700, marginBottom: '1rem' }}>Không tìm thấy thông tin đặt phòng.</p>
-          <Link to="/bookings" className="btn-primary">
-            Về danh sách đặt phòng
-          </Link>
-        </div>
+      <div style={{ backgroundColor: 'var(--color-ivory)', minHeight: '75vh', padding: '4rem 1rem', textAlign: 'center', color: 'var(--color-slate)' }}>
+        <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', marginBottom: '10px' }} />
+        <p>Đang tải chi tiết đơn đặt phòng…</p>
       </div>
     );
   }
 
-  const handleConfirmCancel = () => {
-    cancelBooking(booking.id);
-    setIsCancelModalOpen(false);
-    showToast('Hủy đặt phòng thành công! Tiền sẽ được hoàn 100% về tài khoản.', 'success');
-  };
+  if (error || !booking) {
+    return (
+      <div style={{ backgroundColor: 'var(--color-ivory)', minHeight: '75vh', padding: '4rem 1rem', textAlign: 'center' }}>
+        <AlertCircle size={32} style={{ color: 'var(--color-rose-text)', marginBottom: '10px' }} />
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '10px' }}>
+          {error || 'Không tìm thấy đơn đặt phòng'}
+        </h2>
+        <Link to="/bookings" className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.875rem' }}>
+          Quay lại Đặt phòng của tôi
+        </Link>
+      </div>
+    );
+  }
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'PAID':
-        return <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 12px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-emerald-bg)', color: 'var(--color-emerald-text)', border: '1px solid var(--color-emerald-border)' }}>Đã thanh toán (PAID)</span>;
-      case 'PENDING':
-        return <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 12px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-amber-bg)', color: 'var(--color-amber-text)', border: '1px solid var(--color-amber-border)' }}>Chờ thanh toán (PENDING)</span>;
-      case 'COMPLETED':
-        return <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 12px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-indigo-bg)', color: 'var(--color-indigo-text)', border: '1px solid var(--color-indigo-border)' }}>Đã hoàn tất</span>;
-      case 'CANCELLED':
-        return <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 12px', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--color-rose-bg)', color: 'var(--color-rose-text)', border: '1px solid var(--color-rose-border)' }}>Đã hủy (Đã hoàn tiền 100%)</span>;
-      case 'EXPIRED':
-        return <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 12px', borderRadius: 'var(--radius-md)', backgroundColor: '#F1F5F9', color: '#475569', border: '1px solid var(--color-border)' }}>Đã hết hạn giữ chỗ</span>;
-      default:
-        return null;
-    }
-  };
+  const s = String(booking.status || '').toUpperCase();
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)', paddingTop: '2.5rem', paddingBottom: '5rem' }}>
-      <div className="container-3xl">
-        
-        {/* Back Link */}
-        <Link to="/bookings" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)', marginBottom: '1rem' }}>
-          <ArrowLeft style={{ width: '14px', height: '14px' }} />
-          <span>Về danh sách đặt phòng</span>
+    <div style={{ backgroundColor: 'var(--color-ivory)', minHeight: '100vh', padding: '2rem 0 5rem' }}>
+      <div className="container-4xl">
+        <Link
+          to="/bookings"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '0.84rem',
+            fontWeight: 700,
+            color: 'var(--color-slate)',
+            marginBottom: '1rem',
+          }}
+        >
+          <ArrowLeft size={15} /> Quay lại danh sách đặt phòng
         </Link>
 
-        {/* Card Header */}
-        <div style={{ backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border)', padding: '2rem', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', paddingBottom: '1.25rem', borderBottom: '1px solid var(--color-border)' }}>
+        <div className="card-ivory" style={{ backgroundColor: 'var(--color-white)', padding: '24px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '18px' }}>
             <div>
-              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-sunshine)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
-                Phiếu Xác Nhận Đặt Phòng
-              </span>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-navy)', letterSpacing: '-0.025em', marginTop: '2px' }}>
-                {booking.bookingCode}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                <span className="tabular-nums" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-navy)' }}>
+                  Mã đơn #{booking.bookingCode}
+                </span>
+                <span
+                  className={`status-badge ${
+                    s === 'CONFIRMED' || s === 'COMPLETED'
+                      ? 'badge-confirmed'
+                      : s === 'PENDING_PAYMENT'
+                        ? 'badge-pending'
+                        : 'badge-cancelled'
+                  }`}
+                >
+                  {s === 'CONFIRMED' || s === 'COMPLETED' ? (
+                    <CheckCircle2 size={13} style={{ marginRight: '4px' }} />
+                  ) : s === 'PENDING_PAYMENT' ? (
+                    <Clock size={13} style={{ marginRight: '4px' }} />
+                  ) : (
+                    <XCircle size={13} style={{ marginRight: '4px' }} />
+                  )}
+                  {s}
+                </span>
+              </div>
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-navy)', marginBottom: '4px' }}>
+                {booking.accommodationName}
               </h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--color-slate)' }}>
+                <MapPin size={14} style={{ color: 'var(--color-sunshine)' }} />
+                <span>{booking.addressLine}</span>
+              </div>
             </div>
-            <div>
-              {getStatusBadge(booking.status)}
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => openChatWidget({ forceContextCard: true })}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', fontSize: '0.82rem' }}
+              >
+                <MessageCircle size={15} />
+                <span>Hỏi Trợ lý về đơn này</span>
+              </button>
+              {s === 'PENDING_PAYMENT' && (
+                <Link
+                  to={`/checkout?bookingId=${encodeURIComponent(booking.id)}`}
+                  className="btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', fontSize: '0.82rem' }}
+                >
+                  <CreditCard size={15} />
+                  <span>Tiếp tục thanh toán</span>
+                </Link>
+              )}
             </div>
           </div>
 
-          {/* Hotel Details */}
-          <div>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-navy)' }}>{booking.accommodationName}</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--color-slate)', marginTop: '4px' }}>
-              <MapPin style={{ width: '16px', height: '16px', color: 'var(--color-sunshine)', flexShrink: 0 }} />
-              <span>{booking.address}</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '14px', padding: '14px', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--color-ivory)' }}>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-slate)' }}>Nhận phòng</div>
+              <div style={{ fontWeight: 700, color: 'var(--color-navy)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Calendar size={14} /> {formatDateVN(booking.checkInDate)}
+                {booking.accommodationContact?.checkInTime ? ` (từ ${booking.accommodationContact.checkInTime.slice(0, 5)})` : ''}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-slate)' }}>Trả phòng</div>
+              <div style={{ fontWeight: 700, color: 'var(--color-navy)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Calendar size={14} /> {formatDateVN(booking.checkOutDate)}
+                {booking.accommodationContact?.checkOutTime ? ` (trước ${booking.accommodationContact.checkOutTime.slice(0, 5)})` : ''}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-slate)' }}>Khách lưu trú</div>
+              <div style={{ fontWeight: 700, color: 'var(--color-navy)' }}>
+                {booking.totalRooms} phòng · {booking.totalAdults} người lớn{booking.totalChildren > 0 ? `, ${booking.totalChildren} trẻ em` : ''}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-slate)' }}>Liên hệ cơ sở</div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-navy)' }}>
+                {booking.accommodationContact?.phone && (
+                  <span style={{ display: 'block' }}><Phone size={12} /> {booking.accommodationContact.phone}</span>
+                )}
+                {booking.accommodationContact?.email && (
+                  <span style={{ display: 'block' }}><Mail size={12} /> {booking.accommodationContact.email}</span>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Stay Dates Box */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', padding: '1rem', backgroundColor: 'var(--color-ivory)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', fontSize: '12px' }}>
-            <div>
-              <span style={{ color: 'var(--color-slate)', display: 'block', fontWeight: 500 }}>Nhận phòng (14:00):</span>
-              <strong style={{ color: 'var(--color-navy)', fontSize: '0.875rem' }}>{formatDateVN(booking.checkinDate)}</strong>
-            </div>
-            <div>
-              <span style={{ color: 'var(--color-slate)', display: 'block', fontWeight: 500 }}>Trả phòng (12:00):</span>
-              <strong style={{ color: 'var(--color-navy)', fontSize: '0.875rem' }}>{formatDateVN(booking.checkoutDate)}</strong>
-            </div>
-            <div>
-              <span style={{ color: 'var(--color-slate)', display: 'block', fontWeight: 500 }}>Lưu trú:</span>
-              <strong style={{ color: 'var(--color-navy)', fontSize: '0.875rem' }}>{booking.nights} đêm · {booking.numberOfRooms} phòng</strong>
-            </div>
-          </div>
-
-          {/* Individual Room Breakdown */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '8px' }}>
-            <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-navy)' }}>Chi Tiết Từng Phòng</h3>
-            {booking.items && booking.items.map((item, idx) => (
-              <div key={idx} style={{ padding: '12px', backgroundColor: '#F8FAFC', borderRadius: 'var(--radius-lg)', border: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+          {/* Room items */}
+          <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-navy)', margin: '20px 0 10px' }}>
+            Chi tiết phòng đã đặt
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {(booking.items || []).map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '10px 14px',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                }}
+              >
                 <div>
-                  <strong style={{ color: 'var(--color-navy)', display: 'block' }}>Phòng {idx + 1}: {item.roomName}</strong>
-                  <span style={{ color: 'var(--color-slate)' }}>{item.adults} người lớn, {item.children} trẻ em</span>
+                  <strong style={{ color: 'var(--color-navy)', fontSize: '0.92rem' }}>{item.roomName}</strong>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--color-slate)' }}>
+                    {item.adults} người lớn{item.children > 0 ? `, ${item.children} trẻ em` : ''}
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right', fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">
-                  {formatVND(item.roomStayPrice + (item.extraFeeTotal || 0))}
-                </div>
+                <strong className="tabular-nums" style={{ color: 'var(--color-navy)' }}>
+                  {formatVND(item.totalAmount)}
+                </strong>
               </div>
             ))}
           </div>
 
-          {/* Price Breakdown */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '1rem', borderTop: '1px solid var(--color-border)', fontSize: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-slate)' }}>
-              <span>Tiền phòng:</span>
-              <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">{formatVND(booking.roomSubtotal)}</span>
+          {/* Price breakdown */}
+          <div style={{ marginTop: '18px', borderTop: '1px solid var(--color-border)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.88rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Tiền phòng ({booking.totalNights} đêm)</span>
+              <span className="tabular-nums">{formatVND(booking.roomsSubtotal)}</span>
             </div>
-
-            {booking.extraGuestsSubtotal > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-slate)' }}>
-                <span>Phụ thu khách/trẻ em thêm:</span>
-                <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">+{formatVND(booking.extraGuestsSubtotal)}</span>
+            {booking.extraGuestTotal > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Phụ thu khách thêm</span>
+                <span className="tabular-nums">{formatVND(booking.extraGuestTotal)}</span>
               </div>
             )}
-
             {booking.discountAmount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-emerald-text)', fontWeight: 600, backgroundColor: 'var(--color-emerald-bg)', padding: '4px 8px', borderRadius: 'var(--radius-sm)' }}>
-                <span>{booking.promotionName || 'Ưu đãi áp dụng'}:</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-emerald-text)' }}>
+                <span>Ưu đãi / Giảm giá</span>
                 <span className="tabular-nums">-{formatVND(booking.discountAmount)}</span>
               </div>
             )}
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', fontWeight: 800, color: 'var(--color-navy)', paddingTop: '8px', borderTop: '1px solid var(--color-border)' }}>
-              <span>Tổng thanh toán:</span>
-              <span className="tabular-nums" style={{ fontSize: '1.25rem' }}>{formatVND(booking.totalAmount)}</span>
+            {booking.taxAmount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Thuế</span>
+                <span className="tabular-nums">{formatVND(booking.taxAmount)}</span>
+              </div>
+            )}
+            {booking.serviceFee > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Phí dịch vụ</span>
+                <span className="tabular-nums">{formatVND(booking.serviceFee)}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-navy)', paddingTop: '6px', borderTop: '1px dashed var(--color-border)' }}>
+              <span>Tổng thanh toán</span>
+              <span className="tabular-nums">{formatVND(booking.totalAmount)}</span>
             </div>
           </div>
 
-          {/* Action CTAs */}
-          <div style={{ paddingTop: '1rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-            {booking.status === 'PENDING' && (
-              <Link
-                to={`/checkout?bookingId=${booking.id}`}
-                className="btn-primary"
-              >
-                Tiếp tục thanh toán ngay
-              </Link>
-            )}
-
-            {booking.status === 'PAID' && (
-              <button
-                type="button"
-                onClick={() => setIsCancelModalOpen(true)}
-                style={{ padding: '8px 16px', border: '1px solid #FECDD3', color: '#BE123C', borderRadius: 'var(--radius-lg)', fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'background-color var(--transition-fast)' }}
-              >
-                Hủy đặt phòng
-              </button>
-            )}
-          </div>
-
+          {/* Payment records */}
+          {booking.payments?.length > 0 && (
+            <div style={{ marginTop: '20px' }}>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '8px' }}>
+                Lịch sử giao dịch thanh toán
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {booking.payments.map((p) => (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      justifyContent: 'space-between',
+                      gap: '8px',
+                      padding: '10px 12px',
+                      backgroundColor: '#F8FAFC',
+                      borderRadius: 'var(--radius-md)',
+                      fontSize: '0.82rem',
+                    }}
+                  >
+                    <div>
+                      <strong>#{p.paymentCode}</strong> · {p.paymentMethod} · <span>{p.status}</span>
+                      {p.paidAt && <div style={{ color: 'var(--color-slate)', fontSize: '0.75rem' }}>Thanh toán lúc {formatFullDateTime(p.paidAt)}</div>}
+                    </div>
+                    <strong className="tabular-nums">{formatVND(p.amount)}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-
       </div>
-
-      {/* Cancellation Modal */}
-      {isCancelModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)' }}>
-          <div style={{ backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', maxWidth: '28rem', width: '100%', padding: '1.5rem', boxShadow: 'var(--shadow-2xl)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--color-border)' }}>
-              <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-navy)' }}>Xác Nhận Hủy Đặt Phòng</h4>
-              <button onClick={() => setIsCancelModalOpen(false)} style={{ color: 'var(--color-slate)', cursor: 'pointer' }}>
-                <X style={{ width: '20px', height: '20px' }} />
-              </button>
-            </div>
-
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-slate)', lineHeight: 1.6 }}>
-              Quý khách có chắc chắn muốn hủy đơn đặt phòng <strong>{booking.bookingCode}</strong> tại <strong>{booking.accommodationName}</strong> không?
-            </p>
-
-            <div style={{ padding: '12px', backgroundColor: 'var(--color-emerald-bg)', border: '1px solid var(--color-emerald-border)', borderRadius: 'var(--radius-lg)', fontSize: '12px', color: 'var(--color-emerald-text)', lineHeight: 1.6 }}>
-              <strong>Chính sách hoàn tiền:</strong> Đơn đặt phòng này đủ điều kiện miễn phí hủy phòng (&gt; 48 giờ trước nhận phòng). Số tiền <strong>{formatVND(booking.totalAmount)}</strong> sẽ được hoàn trả 100%.
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', paddingTop: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setIsCancelModalOpen(false)}
-                style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', fontSize: '12px', fontWeight: 700, color: 'var(--color-slate)', cursor: 'pointer' }}
-              >
-                Giữ lại phòng
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmCancel}
-                style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', backgroundColor: '#E11D48', color: 'var(--color-white)', fontSize: '12px', fontWeight: 700, cursor: 'pointer', border: 'none' }}
-              >
-                Xác nhận hủy
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

@@ -83,7 +83,7 @@ export default function HeroSlider() {
                   {slide.cta && (
                     <div style={{ paddingTop: '8px' }}>
                       <Link
-                        to={slide.link || '/search'}
+                        to={slide.link || '/search-accommodations'}
                         className="hero-slide-cta-btn"
                       >
                         {slide.cta}
