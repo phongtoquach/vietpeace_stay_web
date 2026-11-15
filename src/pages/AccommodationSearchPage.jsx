@@ -35,21 +35,6 @@ const STAR_RATINGS_CONFIG = [
     { rating: 1, label: '1 sao' },
 ];
 
-// Amenities configuration with canonical numeric IDs
-const AMENITIES_CONFIG = [
-    { id: 1, code: 'restaurant', label: 'Nhà hàng' },
-    { id: 6, code: 'breakfast_service', label: 'Dịch vụ bữa sáng' },
-    { id: 11, code: 'outdoor_pool', label: 'Hồ bơi ngoài trời' },
-    { id: 68, code: 'on_site_parking', label: 'Bãi đỗ xe ô tô' },
-    { id: 185, code: 'wifi', label: 'Wi-Fi' },
-    { id: 17, code: 'spa', label: 'Spa' },
-    { id: 24, code: 'children_playground', label: 'Khu vui chơi trẻ em' },
-    { id: 36, code: 'garden', label: 'Sân vườn' },
-    { id: 50, code: 'front_desk_24h', label: 'Lễ tân 24 giờ' },
-    { id: 51, code: 'luggage_storage', label: 'Giữ hành lý' },
-    { id: 54, code: 'laundry_service', label: 'Dịch vụ giặt ủi' },
-];
-
 // Dùng để đánh dấu checkbox; validation request nằm trong buildSearchBody().
 function readSelectedIds(raw) {
     return raw
@@ -136,6 +121,37 @@ export default function AccommodationSearchPage() {
     const selectedTypeIds = readSelectedIds(searchParams.get('accommodationTypeIds')).map(String);
     const selectedRatings = readSelectedIds(searchParams.get('starRatings'));
     const selectedAmenityIds = readSelectedIds(searchParams.get('amenityIds'));
+
+    const [amenityOptions, setAmenityOptions] = useState([]);
+
+    useEffect(() => {
+        let ignoreResponse = false;
+
+        async function loadAmenityOptions() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/amenities/featured`);
+                const result = await response.json();
+
+                if (!response.ok || !result.success || !Array.isArray(result.data.amenities)) {
+                    throw new Error(result.message || 'Không thể tải danh sách tiện nghi.');
+                }
+
+                if (!ignoreResponse) {
+                    setAmenityOptions(result.data.amenities);
+                }
+            } catch (error) {
+                if (!ignoreResponse) {
+                    console.error('[AccommodationSearchPage.amenities]', error);
+                }
+            }
+        }
+
+        loadAmenityOptions();
+
+        return () => {
+            ignoreResponse = true;
+        };
+    }, []);
 
     // Committed price values from URL (fallback to slider boundaries)
     const committedMinPrice = useMemo(() => {
@@ -830,24 +846,26 @@ export default function AccommodationSearchPage() {
                             </div>
 
                             {/* Filter 4: Amenities using actual numeric IDs */}
-                            <div className="sidebar-filter-section" style={{ borderBottom: 'none' }}>
-                                <h3 className="filter-title">Tiện ích dịch vụ</h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    {AMENITIES_CONFIG.map((amenity) => (
-                                        <label key={amenity.id} className="filter-checkbox-row">
-                                            <input
-                                                type="checkbox"
-                                                value={amenity.id}
-                                                checked={selectedAmenityIds.includes(amenity.id)}
-                                                onChange={() => handleToggleAmenity(amenity.id)}
-                                                disabled={isLoading}
-                                                className="filter-checkbox"
-                                            />
-                                            <span>{amenity.label}</span>
-                                        </label>
-                                    ))}
+                            {amenityOptions.length > 0 && (
+                                <div className="sidebar-filter-section" style={{ borderBottom: 'none' }}>
+                                    <h3 className="filter-title">Tiện ích dịch vụ</h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {amenityOptions.map((amenity) => (
+                                            <label key={amenity.id} className="filter-checkbox-row">
+                                                <input
+                                                    type="checkbox"
+                                                    value={amenity.id}
+                                                    checked={selectedAmenityIds.includes(amenity.id)}
+                                                    onChange={() => handleToggleAmenity(amenity.id)}
+                                                    disabled={isLoading}
+                                                    className="filter-checkbox"
+                                                />
+                                                <span>{amenity.name}</span>
+                                            </label>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </aside>
 
