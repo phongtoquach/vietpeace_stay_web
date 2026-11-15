@@ -36,7 +36,7 @@ export default function HomePage() {
         const response = await fetch(`${API_BASE_URL}/accommodations/search`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sort: 'default', page: 1, pageSize: 3 }),
+          body: JSON.stringify({ onlyFeatured: 1, sort: 'default', page: 1, pageSize: 3 }),
           credentials: 'include',
         });
         const result = await response.json();
