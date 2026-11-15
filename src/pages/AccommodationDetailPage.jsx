@@ -11,7 +11,7 @@ import ImageGalleryModal from '../components/ImageGalleryModal.jsx';
 import AccommodationOverview from '../components/AccommodationOverview';
 import LoginModal from '../components/LoginModal.jsx';
 import RoomTypePriceBreakdownTooltip from '../components/room_types/RoomTypePriceBreakdownTooltip';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/useAuth.js';
 import { useChat } from '../chat/ChatContext.jsx';
 import { MessageCircle as ChatBubbleIcon, UserCheck as ChatManagerIcon } from 'lucide-react';
 import { formatVND, formatDateVN } from '../utils/bookingUtils.js';

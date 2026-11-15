@@ -8,7 +8,7 @@ import LoginModal from '../components/LoginModal.jsx';
 import PriceBreakdownTooltip from '../components/PriceBreakdownTooltip.jsx';
 import { HOTELS } from '../data/hotelsData.js';
 import { useBooking } from '../context/BookingContext.jsx';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/useAuth.js';
 import { calculateStayPricing, formatVND, formatDateVN, formatCountdown, getStayNights, isSpecialHoliday, isWeekendNight } from '../utils/bookingUtils.js';
 import { MapPin, Star, Eye, Calendar, Sparkles, X, Clock, AlertCircle } from 'lucide-react';
 

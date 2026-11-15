@@ -4,7 +4,7 @@ import { Search, MapPin, Building, Calendar, Users, Plus, Minus } from 'lucide-r
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { AUTOCOMPLETE_OPTIONS } from '../data/hotelsData.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/useAuth.js';
 
 // Helpers for timezone-safe date conversion
 const parseDateString = (str) => {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/useAuth.js';
 import { User, Lock, Calendar } from 'lucide-react';
 
 const fieldErrorStyle = {
@@ -313,7 +313,7 @@ export default function ProfilePage() {
                         <p style={{ fontSize: '0.875rem', color: 'var(--color-slate)', marginTop: '4px' }}>Quản lý hồ sơ định danh và cài đặt bảo mật của bạn.</p>
                     </div>
                     <Link
-                        to="/my-account/my-bookings"
+                        to="/bookings"
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border)', color: 'var(--color-navy)', fontSize: '12px', fontWeight: 700 }}
                     >
                         <Calendar style={{ width: '16px', height: '16px', color: 'var(--color-sunshine)' }} />

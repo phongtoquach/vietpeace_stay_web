@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 import { AppProvider } from './context/AppContext';
-import { AuthProvider } from './context/AuthContext';
+import AuthProvider from './context/AuthProvider.jsx';
 import { BookingProvider } from './context/BookingContext.jsx';
 
 import HomePage from './pages/HomePage';
@@ -17,7 +16,6 @@ import ProfilePage from './pages/ProfilePage';
 import MyBookingsPage from './pages/MyBookingsPage';
 import BookingDetailPage from './pages/BookingDetailPage';
 import CheckoutPage from './pages/CheckoutPage';
-import BookingSuccessPage from './pages/BookingSuccessPage';
 
 import VnpayReturnPage from './pages/VnpayReturnPage';
 

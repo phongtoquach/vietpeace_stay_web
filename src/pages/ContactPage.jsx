@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/useAuth.js';
 import { MapPin, Phone, Mail, Send } from 'lucide-react';
 
 export default function ContactPage() {

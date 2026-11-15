@@ -21,6 +21,7 @@ import {
   resendCustomerVerification,
 } from '../utils/authApi.js';
 import '../assets/styles/register.css';
+import { resolveSafeReturnUrl } from '../utils/authReturnUrl.js';
 
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 const PHONE_REGEX = /^[+0-9 ()-]{9,20}$/;
@@ -93,7 +94,8 @@ function validateFieldValue(name, values) {
 
 export default function RegisterPage() {
   const [searchParams] = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl') || '';
+  const safeReturnUrl = resolveSafeReturnUrl(searchParams.get('returnUrl'));
+  const returnUrl = safeReturnUrl === '/' ? '' : safeReturnUrl;
   const loginHref = returnUrl
     ? `/login?returnUrl=${encodeURIComponent(returnUrl)}`
     : '/login';
@@ -252,7 +254,7 @@ export default function RegisterPage() {
         emailSent,
         expiresInHours,
       });
-      setResendCooldown(emailSent ? 60 : 0);
+      setResendCooldown(data?.data?.cooldownSeconds ?? (emailSent ? 60 : 0));
       setResendFeedback(
         emailSent
           ? null
@@ -293,10 +295,11 @@ export default function RegisterPage() {
       }
 
       setVerificationState((prev) => (prev ? { ...prev, emailSent: true } : prev));
+      setBannerMessage(null);
       setResendCooldown(data?.data?.cooldownSeconds || 60);
       setResendFeedback({
         type: 'success',
-        text: data?.message || 'Đã gửi lại liên kết xác thực. Vui lòng kiểm tra hộp thư của bạn.',
+        text: data?.message || 'Đã gửi lại mã xác nhận. Vui lòng kiểm tra hộp thư của bạn.',
       });
     } catch (error) {
       console.error('[RegisterPage] Resend verification failed:', error);
@@ -398,20 +401,21 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <span className="register-card-eyebrow">BƯỚC TIẾP THEO · XÁC THỰC EMAIL</span>
+                <span className="register-card-eyebrow">ĐĂNG KÝ THÀNH CÔNG · MÃ XÁC NHẬN LẦN ĐẦU</span>
                 <h2
                   ref={verificationHeadingRef}
                   tabIndex={-1}
                   className="register-verify-heading"
                 >
-                  Kiểm tra hộp thư của bạn
+                  {verificationState.emailSent ? 'Email chứa mã xác nhận đã được gửi' : 'Tài khoản đã tạo, email xác nhận chưa gửi được'}
                 </h2>
               </div>
 
               <p className="register-verify-text">
-                Chúng tôi đã ghi nhận tài khoản cho{' '}
-                <strong>{verificationState.fullName}</strong> và gửi liên kết xác thực đến địa chỉ{' '}
-                <strong>{verificationState.email}</strong>.
+                Tài khoản cho <strong>{verificationState.fullName}</strong> đã được tạo với tên đăng nhập là email{' '}
+                <strong>{verificationState.email}</strong>.{' '}
+                {verificationState.emailSent ? <>Hệ thống đã gửi một email chứa <strong>mã xác nhận gồm 6 chữ số</strong> tới địa chỉ này.</>
+                  : <>Bạn có thể bấm <strong>Gửi lại mã xác nhận</strong> để thử gửi email lại.</>}
               </p>
 
               {resendFeedback && (
@@ -429,16 +433,18 @@ export default function RegisterPage() {
               )}
 
               <div className="register-verify-tips">
-                <strong>Lưu ý khi kích hoạt tài khoản:</strong>
+                <strong>Hướng dẫn kích hoạt ở lần đăng nhập đầu tiên:</strong>
                 <ul>
                   <li>
-                    Mở email có tiêu đề <em>"[VietPeace Stay] Xác thực địa chỉ email tài khoản của bạn"</em> và nhấn nút xác thực.
+                    Mở email có tiêu đề <em>"[VietPeace Stay] Mã xác nhận kích hoạt tài khoản đăng nhập lần đầu"</em> để lấy mã gồm 6 chữ số.
                   </li>
                   <li>
-                    Liên kết xác thực có hiệu lực trong vòng{' '}
-                    <strong>{verificationState.expiresInHours} giờ</strong>.
+                    Ở <strong>lần đăng nhập đầu tiên</strong>, hãy nhập email đăng ký, mật khẩu và mã xác nhận này để kích hoạt và vào tài khoản.
                   </li>
-                  <li>Nếu chưa thấy thư ở Hộp thư đến, hãy kiểm tra thêm mục Thư rác (Spam) hoặc Quảng cáo.</li>
+                  <li>
+                    Những lần đăng nhập sau sẽ <strong>không cần nhập mã xác nhận</strong> nữa (mã có hiệu lực trong vòng{' '}
+                    <strong>{verificationState.expiresInHours} giờ</strong>).
+                  </li>
                 </ul>
               </div>
 
@@ -452,22 +458,27 @@ export default function RegisterPage() {
                   {isResending ? (
                     <>
                       <Loader2 size={17} className="register-spin" aria-hidden="true" />
-                      <span>Đang gửi lại email...</span>
+                      <span>Đang gửi lại mã...</span>
                     </>
                   ) : resendCooldown > 0 ? (
                     <>
                       <RefreshCw size={17} aria-hidden="true" />
-                      <span>Gửi lại email xác thực ({resendCooldown}s)</span>
+                      <span>Gửi lại mã xác nhận ({resendCooldown}s)</span>
                     </>
                   ) : (
                     <>
                       <RefreshCw size={17} aria-hidden="true" />
-                      <span>Gửi lại email xác thực</span>
+                      <span>Gửi lại mã xác nhận</span>
                     </>
                   )}
                 </button>
 
-                <Link className="register-submit" to={loginHref}>
+                <Link
+                  className="register-submit"
+                  to={`/login?email=${encodeURIComponent(verificationState.email)}&verify=1${
+                    returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ''
+                  }`}
+                >
                   Đi tới trang Đăng nhập <ArrowRight size={18} aria-hidden="true" />
                 </Link>
 
@@ -485,7 +496,7 @@ export default function RegisterPage() {
               <span className="register-card-eyebrow">CHÀO MỪNG BẠN ĐẾN VỚI VIETPEACESTAY</span>
               <h2 id={cardHeadingId}>Tạo tài khoản mới</h2>
               <p className="register-card-description">
-                Hành trình mới bắt đầu từ đây. Email xác thực sẽ được gửi sau khi đăng ký.
+                Tên đăng nhập là email của bạn. Mã xác nhận kích hoạt cho lần đăng nhập đầu tiên sẽ được gửi qua email sau khi tạo tài khoản.
               </p>
 
               {bannerMessage && (
@@ -520,7 +531,7 @@ export default function RegisterPage() {
                     autoComplete="name"
                     enterKeyHint="next"
                     placeholder="Nhập họ và tên của bạn"
-                    maxLength={100}
+                    maxLength={255}
                     required
                     disabled={isSubmitting}
                     className={fieldErrors.fullName ? 'register-input--invalid' : ''}
