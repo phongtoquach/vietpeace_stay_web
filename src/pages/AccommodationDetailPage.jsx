@@ -1445,7 +1445,7 @@ export default function AccommodationDetailPage() {
                                                 justifyContent: 'space-between',
                                             }}
                                         >
-                                            <span>Thuế:</span>
+                                            <span>Thuế ({bookingData.taxRatePercent + "%"}):</span>
                                             <strong>
                                                 {formatVND(
                                                     bookingData.taxAmount,

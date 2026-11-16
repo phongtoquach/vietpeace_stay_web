@@ -1206,16 +1206,16 @@ function CheckoutContent({ checkout, onReload }) {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-slate)' }}>
-                <span>Thuế:</span>
+                <span>Thuế ({booking.taxRatePercent + "%"}):</span>
                 <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">{formatVND(taxAmount)}</span>
               </div>
 
-              {hasServiceFee && (
+              {/* {hasServiceFee && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-slate)' }}>
                   <span>Phí dịch vụ:</span>
                   <span style={{ fontWeight: 700, color: 'var(--color-navy)' }} className="tabular-nums">{formatVND(serviceFee)}</span>
                 </div>
-              )}
+              )} */}
 
               {/* Discount rows remain commented out / hidden as in reference */}
               {/*
