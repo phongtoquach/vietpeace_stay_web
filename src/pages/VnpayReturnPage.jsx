@@ -32,7 +32,7 @@ const RESULT_COPY = {
         message: 'VNPay báo giao dịch thất bại. Quý khách có thể kiểm tra lại đơn đặt phòng.',
     },
     REFUND_PENDING: {
-        title: 'Đang xử lý hoàn tiền',
+        title: 'Đặt phòng thất bại',
         message: 'VNPay đã ghi nhận thanh toán nhưng VietPeace Stay không thể xác nhận đặt phòng. VietPeace Stay đang xử lý hoàn toàn bộ số tiền.',
     },
     REFUNDED: {

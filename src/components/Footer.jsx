@@ -63,18 +63,13 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/bookings" className="footer-link">
+                <Link to="/my-account/my-bookings" className="footer-link">
                   Tra Cứu Đặt Phòng Của Tôi
                 </Link>
               </li>
               <li>
                 <Link to="/terms" className="footer-link">
                   Điều Khoản & Quy Định Đặt Phòng
-                </Link>
-              </li>
-              <li>
-                <Link to="/privacy" className="footer-link">
-                  Chính Sách Bảo Mật Thông Tin
                 </Link>
               </li>
               <li>

@@ -15,8 +15,8 @@ export const HERO_SLIDES = [
   },
   {
     id: 2,
-    headline: "Hòa Mình Cùng Sóng Biển & Vịnh Di Sản",
-    description: "Trải nghiệm khu nghỉ dưỡng 5 sao biệt lập tại Vịnh Hạ Long, biển Mỹ Khê Đà Nẵng và đảo ngọc Phú Quốc.",
+    headline: "Thư Thái Bên Bờ Biển",
+    description: "Đón bình minh bên biển, dạo bước trên bãi cát và tận hưởng những ngày nghỉ thong thả tại các resort ven biển.",
     badge: "Resort Ven Biển 5 Sao",
     cta: "Khám Phá Resort",
     link: "/search-accommodations?accommodationTypeIds=2",
@@ -24,8 +24,8 @@ export const HERO_SLIDES = [
   },
   {
     id: 3,
-    headline: "Sang Trọng Giữa Trái Tim Đô Thị Sôi Động",
-    description: "Phòng nghỉ tinh tế và tầm nhìn panorama đắt giá bên bờ sông Sài Gòn và khu phố cổ thủ đô Hà Nội.",
+    headline: "Nghỉ Ngơi Giữa Nhịp Sống Thành Phố",
+    description: "Tận hưởng phòng nghỉ tiện nghi và dễ dàng khám phá ẩm thực, mua sắm hay ghé thăm những điểm đến nổi bật trong thành phố.",
     badge: "Khách Sạn Thành Phố",
     cta: "Tìm Khách Sạn",
     link: "/search-accommodations?accommodationTypeIds=1",
@@ -33,11 +33,11 @@ export const HERO_SLIDES = [
   },
   {
     id: 4,
-    headline: "Tìm Lại Bình Yên Giữa Cánh Đồng Thốt Nốt",
-    description: "Bungalow mộc mạc bên hồ sen và rặng núi Thất Sơn huyền bí tại Tri Tôn và Châu Đốc, An Giang.",
+    headline: "Chậm Lại Giữa Thiên Nhiên",
+    description: "Tận hưởng kỳ nghỉ tại những homestay sinh thái mộc mạc, thức dậy giữa không gian xanh và thong thả khám phá cuộc sống địa phương.",
     badge: "Homestay Sinh Thái",
     cta: "Khám Phá Homestay",
-    link: "/search-accommodations?locationId=4",
+    link: "/search-accommodations?accommodationTypeIds=3",
     image: "/assets/images/homestay-mekong.jpg",
   }
 ];
