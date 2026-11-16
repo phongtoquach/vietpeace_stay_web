@@ -105,3 +105,193 @@
 .shadow-lg { box-shadow: var(--shadow-lg); }
 .shadow-xl { box-shadow: var(--shadow-xl); }
 .shadow-2xl { box-shadow: var(--shadow-2xl); }
+
+/* Checkout Folio & 3-Part Printable Invoice */
+.web-folio-table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  max-block-size: min(520px, 75vh);
+  container-type: inline-size;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+}
+
+.web-folio-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.84rem;
+  --label-2: "Số lượng";
+  --label-3: "Đơn giá";
+  --label-4: "Điều chỉnh / Thuế";
+  --label-5: "Thành tiền";
+}
+
+.web-folio-table caption {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-slate);
+  background: var(--color-ivory);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.web-folio-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  background: var(--color-ivory);
+}
+
+.web-folio-table th,
+.web-folio-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.web-folio-table thead th {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-slate);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.web-folio-table tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+  background: var(--color-white);
+  font-weight: 600;
+  text-align: left;
+  color: var(--color-navy);
+}
+
+@container (width < 600px) {
+  .web-folio-table,
+  .web-folio-table thead,
+  .web-folio-table tbody,
+  .web-folio-table tr,
+  .web-folio-table th,
+  .web-folio-table td {
+    display: block;
+  }
+
+  .web-folio-table thead {
+    display: none;
+  }
+
+  .web-folio-table tbody tr {
+    margin-block-end: 0.75rem;
+    border-bottom: 2px solid var(--color-border);
+  }
+
+  .web-folio-table tbody th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background: var(--color-ivory);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .web-folio-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: right;
+  }
+
+  .web-folio-table tbody td:nth-child(2)::before {
+    content: var(--label-2) ": ";
+    font-weight: 600;
+    color: var(--color-slate);
+  }
+
+  .web-folio-table tbody td:nth-child(3)::before {
+    content: var(--label-3) ": ";
+    font-weight: 600;
+    color: var(--color-slate);
+  }
+
+  .web-folio-table tbody td:nth-child(4)::before {
+    content: var(--label-4) ": ";
+    font-weight: 600;
+    color: var(--color-slate);
+  }
+
+  .web-folio-table tbody td:nth-child(5)::before {
+    content: var(--label-5) ": ";
+    font-weight: 700;
+    color: var(--color-navy);
+  }
+}
+
+/* Native Evidence Lightbox Modal */
+dialog.web-evidence-dialog {
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  max-width: min(760px, 92vw);
+  max-height: 90vh;
+  background: var(--color-white);
+  box-shadow: var(--shadow-2xl);
+}
+
+dialog.web-evidence-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+dialog.web-evidence-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.web-evidence-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.65);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  header,
+  footer,
+  .no-print,
+  [class^="vps-"],
+  [class*=" vps-"] {
+    display: none !important;
+  }
+
+  body,
+  .app-container,
+  .app-main {
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .web-invoice-print-scope {
+    background: #ffffff !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  .web-invoice-print-scope .card-ivory {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 16px !important;
+    break-inside: avoid;
+  }
+
+  .web-folio-table-wrapper {
+    max-block-size: none !important;
+    overflow: visible !important;
+  }
+}

@@ -13,10 +13,13 @@ import {
   MessageCircle,
   Loader2,
   AlertCircle,
+  Printer,
+  Receipt,
 } from 'lucide-react';
 import { formatVND, formatDateVN } from '../utils/bookingUtils.js';
 import { formatFullDateTime } from '../chat/chatUtils.js';
 import { useChat } from '../chat/ChatContext.jsx';
+import BookingCheckoutFolioCard from '../components/BookingCheckoutFolioCard.jsx';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api/web').replace(/\/+$/, '');
 
@@ -62,6 +65,14 @@ export default function BookingDetailPage() {
     };
   }, [lookupKey]);
 
+  useEffect(() => {
+    if (!booking || window.location.hash !== '#checkout-folio') return;
+    const el = document.getElementById('checkout-folio');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [booking]);
+
   if (loading) {
     return (
       <div style={{ backgroundColor: 'var(--color-ivory)', minHeight: '75vh', padding: '4rem 1rem', textAlign: 'center', color: 'var(--color-slate)' }}>
@@ -88,10 +99,11 @@ export default function BookingDetailPage() {
   const s = String(booking.status || '').toUpperCase();
 
   return (
-    <div style={{ backgroundColor: 'var(--color-ivory)', minHeight: '100vh', padding: '2rem 0 5rem' }}>
+    <div className="web-invoice-print-scope" style={{ backgroundColor: 'var(--color-ivory)', minHeight: '100vh', padding: '2rem 0 5rem' }}>
       <div className="container-4xl">
         <Link
           to="/bookings"
+          className="no-print"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -108,7 +120,7 @@ export default function BookingDetailPage() {
         <div className="card-ivory" style={{ backgroundColor: 'var(--color-white)', padding: '24px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', marginBottom: '18px' }}>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                 <span className="tabular-nums" style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--color-navy)' }}>
                   Mã đơn #{booking.bookingCode}
                 </span>
@@ -130,6 +142,43 @@ export default function BookingDetailPage() {
                   )}
                   {s}
                 </span>
+                {booking.checkedOutAt ? (
+                  <span
+                    className="status-badge"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      backgroundColor: 'var(--color-emerald-bg)',
+                      color: 'var(--color-emerald-text)',
+                      border: '1px solid var(--color-emerald-border)',
+                    }}
+                  >
+                    <CheckCircle2 size={12} />
+                    Đã trả phòng{booking.checkoutSummary?.settlementStatus === 'SETTLED' ? ' · Đã kết toán' : ''}
+                  </span>
+                ) : booking.checkedInAt ? (
+                  <span
+                    className="status-badge"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      backgroundColor: '#EFF6FF',
+                      color: '#1D4ED8',
+                      border: '1px solid #BFDBFE',
+                    }}
+                  >
+                    <Clock size={12} /> Đang lưu trú
+                  </span>
+                ) : null}
+                {booking.checkoutSummary &&
+                  booking.checkoutSummary.settlementStatus !== 'SETTLED' &&
+                  Number(booking.checkoutSummary.settlementDueAmount || 0) > 0 && (
+                    <span className="status-badge badge-pending" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Receipt size={12} /> Chờ thanh toán phát sinh
+                    </span>
+                  )}
               </div>
               <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-navy)', marginBottom: '4px' }}>
                 {booking.accommodationName}
@@ -140,7 +189,18 @@ export default function BookingDetailPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            <div className="no-print" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {(booking.checkoutFolio || booking.checkedInAt || booking.checkedOutAt) && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => window.print()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 14px', fontSize: '0.82rem' }}
+                >
+                  <Printer size={15} />
+                  <span>In hóa đơn</span>
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-secondary"
@@ -295,6 +355,8 @@ export default function BookingDetailPage() {
             </div>
           )}
         </div>
+
+        <BookingCheckoutFolioCard booking={booking} apiBaseUrl={API_BASE_URL} />
       </div>
     </div>
   );

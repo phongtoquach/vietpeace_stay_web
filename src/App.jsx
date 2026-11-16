@@ -18,6 +18,7 @@ import BookingDetailPage from './pages/BookingDetailPage';
 import CheckoutPage from './pages/CheckoutPage';
 
 import VnpayReturnPage from './pages/VnpayReturnPage';
+import SettlementVnpayReturnPage from './pages/SettlementVnpayReturnPage';
 
 
 import AboutPage from './pages/AboutPage.jsx';
@@ -58,6 +59,7 @@ function App() {
                                     <Route path="/hotel-detail" element={<Navigate to="/search-accommodations" replace />} />
 
                                     <Route path="/payment/vnpay/return" element={<VnpayReturnPage />} />
+                                    <Route path="/bookings/settlement-vnpay-return" element={<SettlementVnpayReturnPage />} />
                             
                                     <Route path="/about" element={<AboutPage />} />
                                     <Route path="/contact" element={<ContactPage />} />
