@@ -52,7 +52,7 @@ export function usePageChatContext() {
           rooms,
           adults,
           children,
-          contextKey: `PROPERTY:${accommodationId}:${checkin || ""}:${checkout || ""}`,
+          contextKey: `PROPERTY:${accommodationId}:${checkin || ""}:${checkout || ""}:${rooms || ""}:${adults || ""}:${children ?? ""}`,
         };
       }
     }
@@ -73,7 +73,7 @@ export function usePageChatContext() {
           rooms,
           adults,
           children,
-          contextKey: `LOCATION:${locationId}:${checkin || ""}:${checkout || ""}`,
+          contextKey: `LOCATION:${locationId}:${checkin || ""}:${checkout || ""}:${rooms || ""}:${adults || ""}:${children ?? ""}`,
         };
       }
     }

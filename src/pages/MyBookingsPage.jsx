@@ -10,6 +10,7 @@ import {
   XCircle,
   Loader2,
   AlertCircle,
+  Receipt,
 } from 'lucide-react';
 import { formatVND, formatDateVN } from '../utils/bookingUtils.js';
 import { resolveMediaUrl } from '../chat/chatUtils.js';
@@ -178,6 +179,46 @@ export default function MyBookingsPage() {
                         #{b.bookingCode}
                       </span>
                       <StatusBadge status={b.status} />
+                      {b.checkedOutAt ? (
+                        <span
+                          className="status-badge"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            backgroundColor: 'var(--color-emerald-bg)',
+                            color: 'var(--color-emerald-text)',
+                            border: '1px solid var(--color-emerald-border)',
+                          }}
+                        >
+                          <CheckCircle2 size={12} />
+                          Đã trả phòng{b.checkoutSummary?.settlementStatus === 'SETTLED' ? ' · Đã kết toán' : ''}
+                        </span>
+                      ) : b.checkedInAt ? (
+                        <span
+                          className="status-badge"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            backgroundColor: '#EFF6FF',
+                            color: '#1D4ED8',
+                            border: '1px solid #BFDBFE',
+                          }}
+                        >
+                          <Clock size={12} /> Đang lưu trú
+                        </span>
+                      ) : null}
+                      {b.checkoutSummary &&
+                        b.checkoutSummary.settlementStatus !== 'SETTLED' &&
+                        Number(b.checkoutSummary.settlementDueAmount || 0) > 0 && (
+                          <span
+                            className="status-badge badge-pending"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <Receipt size={12} /> Chờ thanh toán phát sinh
+                          </span>
+                        )}
                     </div>
                     <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-navy)', marginBottom: '4px' }}>
                       {b.accommodationName}
@@ -203,15 +244,33 @@ export default function MyBookingsPage() {
                     <div className="tabular-nums" style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-navy)' }}>
                       {formatVND(b.totalAmount)}
                     </div>
+                    {b.checkoutSummary && (
+                      <div style={{ fontSize: '0.75rem', marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        {Number(b.checkoutSummary.incidentalGrandTotal || 0) > 0 && (
+                          <span className="tabular-nums" style={{ color: 'var(--color-slate)' }}>
+                            Phát sinh: +{formatVND(b.checkoutSummary.incidentalGrandTotal)}
+                          </span>
+                        )}
+                        {b.checkoutSummary.settlementStatus === 'SETTLED' ? (
+                          <span className="tabular-nums" style={{ fontWeight: 700, color: 'var(--color-emerald-text)' }}>
+                            Tổng chi kỳ nghỉ: {formatVND(Number(b.totalAmount || 0) + Number(b.checkoutSummary.incidentalGrandTotal || 0))}
+                          </span>
+                        ) : Number(b.checkoutSummary.settlementDueAmount || 0) > 0 ? (
+                          <span className="tabular-nums" style={{ fontWeight: 700, color: '#B45309' }}>
+                            Cần trả phát sinh: {formatVND(b.checkoutSummary.settlementDueAmount)}
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
 
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '8px' }}>
                     <Link
                       to={`/booking-detail?code=${encodeURIComponent(b.bookingCode)}`}
                       className="btn-secondary"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '7px 12px', fontSize: '0.8rem' }}
                     >
-                      <span>Chi tiết đơn</span>
+                      <span>{b.checkedOutAt || b.checkoutSummary?.invoiceCode ? 'Chi tiết hóa đơn' : 'Chi tiết đơn'}</span>
                       <ChevronRight size={14} />
                     </Link>
                     {b.status === 'PENDING_PAYMENT' && (
@@ -224,6 +283,18 @@ export default function MyBookingsPage() {
                         <span>Thanh toán</span>
                       </Link>
                     )}
+                    {b.checkoutSummary &&
+                      b.checkoutSummary.settlementStatus !== 'SETTLED' &&
+                      Number(b.checkoutSummary.settlementDueAmount || 0) > 0 && (
+                        <Link
+                          to={`/booking-detail?code=${encodeURIComponent(b.bookingCode)}#checkout-folio`}
+                          className="btn-primary"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '7px 14px', fontSize: '0.8rem' }}
+                        >
+                          <Receipt size={14} />
+                          <span>Thanh toán phát sinh</span>
+                        </Link>
+                      )}
                   </div>
                 </div>
               </div>

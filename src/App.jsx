@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 import { AppProvider } from './context/AppContext';
-import { AuthProvider } from './context/AuthContext';
+import AuthProvider from './context/AuthProvider.jsx';
 import { BookingProvider } from './context/BookingContext.jsx';
 
 import HomePage from './pages/HomePage';
@@ -15,11 +14,14 @@ import AccommodationDetailPage from './pages/AccommodationDetailPage';
 
 import CustomerBookingsPage from './pages/CustomerBookingsPage';
 import CustomerBookingDetailPage from './pages/CustomerBookingDetailPage';
+import MyBookingsPage from './pages/MyBookingsPage';
+import BookingDetailPage from './pages/BookingDetailPage';
 
 import ProfilePage from './pages/ProfilePage';
 import CheckoutPage from './pages/CheckoutPage';
 
 import VnpayReturnPage from './pages/VnpayReturnPage';
+import SettlementVnpayReturnPage from './pages/SettlementVnpayReturnPage';
 
 
 import AboutPage from './pages/AboutPage.jsx';
@@ -60,6 +62,7 @@ function App() {
                                     <Route path="/hotel-detail" element={<Navigate to="/search-accommodations" replace />} />
 
                                     <Route path="/payment/vnpay/return" element={<VnpayReturnPage />} />
+                                    <Route path="/bookings/settlement-vnpay-return" element={<SettlementVnpayReturnPage />} />
                             
                                     <Route path="/about" element={<AboutPage />} />
                                     <Route path="/contact" element={<ContactPage />} />
@@ -72,7 +75,8 @@ function App() {
                                         <Route path="/profile" element={<ProfilePage />} />
                                         <Route path="/my-account/my-bookings" element={<CustomerBookingsPage />} />
                                         <Route path="/my-account/my-bookings/booking/:bookingId" element={<CustomerBookingDetailPage />} />
-                                        <Route path="/bookings" element={<Navigate to="/my-account/my-bookings" replace />} />
+                                        <Route path="/bookings" element={<MyBookingsPage />} />
+                                        <Route path="/booking-detail" element={<BookingDetailPage />} />
 
                                         <Route path="/checkout" element={<CheckoutPage />} />
                                     </Route>

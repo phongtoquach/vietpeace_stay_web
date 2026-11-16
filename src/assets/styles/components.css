@@ -1895,22 +1895,38 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background-color: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  animation: fadeIn 200ms ease-out;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(245, 184, 46, 0.16) 0%, transparent 56%),
+    rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 220ms ease-out;
 }
 
 .login-modal-dialog {
   position: relative;
   width: 100%;
   max-width: 28rem;
-  background-color: var(--color-white);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-border);
+  overflow: hidden;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 252, 245, 0.94) 100%);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
   padding: 2rem;
-  box-shadow: var(--shadow-2xl);
-  animation: bounceIn 200ms ease-out;
+  box-shadow:
+    0 28px 64px -16px rgba(15, 23, 42, 0.5),
+    0 12px 28px -8px rgba(15, 23, 42, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  animation: bounceIn 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.login-modal-dialog::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #d97706 0%, #f4c542 45%, #fde68a 75%, #f59e0b 100%);
+  pointer-events: none;
 }
 
 @media (min-width: 640px) {
@@ -1921,24 +1937,52 @@
 
 .login-modal-close-btn {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  background: transparent;
-  border: none;
-  color: var(--color-slate);
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.85);
+  border: 1px solid rgba(203, 213, 225, 0.7);
+  color: #475569;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-fast);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .login-modal-close-btn:hover {
-  background-color: #F1F5F9;
+  background-color: #fffbeb;
+  border-color: rgba(245, 184, 46, 0.65);
   color: var(--color-navy);
+  transform: rotate(90deg) scale(1.04);
+}
+
+.login-modal-close-btn:active {
+  transform: rotate(90deg) scale(0.95);
+}
+
+.login-modal-close-btn:focus-visible {
+  outline: 3px solid #0b57d0;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-modal-backdrop,
+  .login-modal-dialog {
+    animation: fadeIn 120ms ease-out;
+  }
+
+  .login-modal-close-btn:hover,
+  .login-modal-close-btn:active {
+    transform: none;
+  }
 }
 
 .auth-input-wrapper {

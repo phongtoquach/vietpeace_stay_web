@@ -10,12 +10,126 @@ import {
 import AuthContext from "../context/AuthContext";
 import { webChatClient } from "./ChatClient";
 import { usePageChatContext } from "./usePageChatContext";
+import { lastServerSequence, mergeChatMessages, updateAiStream } from "./chatState";
 
 const ChatContext = createContext(null);
 
 function makeClientId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
   return `cid-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Decide initial HandoffGuideCard view from discussed properties & active location context. */
+function resolveHandoffGuideState(conv, convMessages = []) {
+  const ctx = conv?.context || {};
+  let discussed = Array.isArray(ctx.discussedAccommodations)
+    ? ctx.discussedAccommodations.filter((x) => Number(x?.accommodationId) > 0)
+    : [];
+
+  // Fallback for legacy conversations before backend context tracking: inspect quote cards newest-first
+  if (discussed.length === 0 && Array.isArray(convMessages) && convMessages.length > 0) {
+    const seen = new Set();
+    const extracted = [];
+    for (let i = convMessages.length - 1; i >= 0; i -= 1) {
+      const p = convMessages[i]?.payload;
+      if (p?.kind === "ROOM_QUOTE" && Number(p.accommodation?.id) > 0) {
+        const aid = Number(p.accommodation.id);
+        if (seen.has(aid)) continue;
+        seen.add(aid);
+        extracted.push({
+          accommodationId: aid,
+          accommodationName: p.accommodation.name || p.accommodation.accommodationName || "",
+          accommodationTypeName: p.accommodation.accommodationTypeName || null,
+          starRating: p.accommodation.starRating ?? null,
+          addressLine: p.accommodation.addressLine || null,
+          coverImage: p.accommodation.coverImage || null,
+          locationId: p.accommodation.locationId ? Number(p.accommodation.locationId) : null,
+          locationName: p.accommodation.locationName || null,
+          hasActiveManager: Boolean(p.accommodation.hasActiveManager),
+        });
+      }
+    }
+    discussed = extracted;
+  }
+
+  let activeLoc = ctx.activeLocation?.id
+    ? { id: Number(ctx.activeLocation.id), name: ctx.activeLocation.name || "" }
+    : ctx.pageContext?.pageType === "LOCATION_SEARCH" && Number(ctx.pageContext.locationId) > 0
+      ? { id: Number(ctx.pageContext.locationId), name: ctx.pageContext.locationName || "" }
+      : null;
+
+  if (!activeLoc && Array.isArray(convMessages)) {
+    for (let i = convMessages.length - 1; i >= 0; i -= 1) {
+      const p = convMessages[i]?.payload;
+      if (p?.kind === "PROPERTY_CHOICES" && Number(p.locationId) > 0) {
+        activeLoc = { id: Number(p.locationId), name: p.locationName || "" };
+        break;
+      }
+    }
+  }
+
+  if (discussed.length === 1) {
+    const prop = discussed[0];
+    if (activeLoc?.id && prop.locationId && Number(activeLoc.id) !== Number(prop.locationId)) {
+      return {
+        open: true,
+        mode: "PICK_ACCOMMODATION",
+        location: activeLoc,
+        discussedProperties: [],
+      };
+    }
+    return {
+      open: true,
+      mode: "CONFIRM_SINGLE",
+      property: prop,
+      discussedProperties: discussed,
+      location: prop.locationId
+        ? { id: Number(prop.locationId), name: prop.locationName || activeLoc?.name || "" }
+        : activeLoc,
+    };
+  }
+
+  if (discussed.length >= 2) {
+    const locIds = [...new Set(discussed.map((d) => Number(d.locationId)).filter(Boolean))];
+    if (locIds.length === 1) {
+      return {
+        open: true,
+        mode: "PICK_ACCOMMODATION",
+        location: { id: locIds[0], name: discussed[0].locationName || activeLoc?.name || "" },
+        discussedProperties: discussed,
+      };
+    }
+    if (activeLoc?.id && discussed.every((d) => !d.locationId)) {
+      return {
+        open: true,
+        mode: "PICK_ACCOMMODATION",
+        location: activeLoc,
+        discussedProperties: discussed,
+      };
+    }
+    return {
+      open: true,
+      mode: "PICK_FROM_DISCUSSED",
+      discussedProperties: discussed,
+      location: activeLoc,
+    };
+  }
+
+  if (activeLoc?.id) {
+    return {
+      open: true,
+      mode: "PICK_ACCOMMODATION",
+      location: activeLoc,
+      discussedProperties: [],
+    };
+  }
+
+  return {
+    open: true,
+    mode: "PICK_LOCATION",
+    discussedProperties: [],
+    location: null,
+  };
 }
 
 export function ChatProvider({ children }) {
@@ -37,6 +151,8 @@ export function ChatProvider({ children }) {
   const [statusNotice, setStatusNotice] = useState("");
   const [handoffGuideState, setHandoffGuideState] = useState({ open: false });
   const [socketConnected, setSocketConnected] = useState(false);
+  const [historyByConv, setHistoryByConv] = useState({});
+  const loadingHistoryRef = useRef(new Set());
 
   const isOpenRef = useRef(isOpen);
   const activeIdRef = useRef(activeConversationId);
@@ -45,56 +161,76 @@ export function ChatProvider({ children }) {
   const prevCustomerIdRef = useRef(undefined);
   const lastReadSentRef = useRef({});
   const lastDeliveredSentRef = useRef({});
+  const sessionEpochRef = useRef(0);
+  const receivedMessageKeysRef = useRef(new Set());
+  const conversationRevisionRef = useRef(0);
+  const expiredConversationIdsRef = useRef(new Set());
+  const manualContextPageKeyRef = useRef(null);
+  const pendingPageSyncRef = useRef(null);
+  const contextMutationVersionRef = useRef(0);
+  const contextQueueRef = useRef(Promise.resolve());
+
+  const runContextMutation = useCallback((work) => {
+    const epoch = sessionEpochRef.current;
+    const version = ++contextMutationVersionRef.current;
+    const isCurrent = () => epoch === sessionEpochRef.current && version === contextMutationVersionRef.current;
+    const scheduled = contextQueueRef.current.catch(() => {}).then(async () => {
+      if (!isCurrent()) return null;
+      try {
+        const result = await work();
+        return isCurrent() ? result : null;
+      } catch (err) {
+        if (isCurrent()) throw err;
+        return null;
+      }
+    });
+    contextQueueRef.current = scheduled.catch(() => {});
+    return scheduled;
+  }, []);
 
   useEffect(() => {
     isOpenRef.current = isOpen;
     activeIdRef.current = activeConversationId;
     actorRef.current = actor;
     pageContextRef.current = pageContext;
+    if (manualContextPageKeyRef.current && manualContextPageKeyRef.current !== pageContext.contextKey) {
+      manualContextPageKeyRef.current = null;
+    }
   }, [isOpen, activeConversationId, actor, pageContext]);
 
   const upsertConversation = useCallback((conv) => {
     if (!conv || !conv.id) return;
+    const cid = Number(conv.id);
+    if (expiredConversationIdsRef.current.has(cid)) return;
+    conversationRevisionRef.current += 1;
+    if (conv.status === "RESOLVED" || (conv.handlingMode && conv.handlingMode !== "AI")) {
+      setStreamingByConv((prev) => prev[cid]
+        ? updateAiStream(prev, "cancelled", { conversationId: cid, runId: prev[cid].runId })
+        : prev);
+    }
     setConversations((prev) => {
       const cid = Number(conv.id);
-      const exists = prev.some((c) => Number(c.id) === cid);
-      const next = exists
-        ? prev.map((c) => (Number(c.id) === cid ? { ...c, ...conv } : c))
-        : [conv, ...prev];
-      return [...next].sort(
-        (a, b) => new Date(b.lastMessageAt || b.updatedAt || 0) - new Date(a.lastMessageAt || a.updatedAt || 0),
-      );
+      const existing = prev.find((c) => Number(c.id) === cid);
+      return [existing ? { ...existing, ...conv } : conv];
     });
   }, []);
+
+  const refreshConversation = useCallback(async (cid) => {
+    const epoch = sessionEpochRef.current;
+    const revision = conversationRevisionRef.current;
+    const conv = await webChatClient.getConversationDetail(cid);
+    if (epoch !== sessionEpochRef.current || revision !== conversationRevisionRef.current || expiredConversationIdsRef.current.has(Number(cid))) return null;
+    upsertConversation(conv);
+    return conv;
+  }, [upsertConversation]);
 
   const appendOrReplaceMessage = useCallback((cid, msg) => {
     if (!cid || !msg) return;
     const convId = Number(cid);
-    setMessagesByConv((prev) => {
-      const list = prev[convId] || [];
-      if (msg.clientMessageId) {
-        const idxByClient = list.findIndex(
-          (m) => m.clientMessageId && m.clientMessageId === msg.clientMessageId,
-        );
-        if (idxByClient !== -1) {
-          const updated = [...list];
-          updated[idxByClient] = { ...msg, localStatus: undefined };
-          return { ...prev, [convId]: updated };
-        }
-      }
-      if (msg.id && list.some((m) => Number(m.id) === Number(msg.id))) {
-        return {
-          ...prev,
-          [convId]: list.map((m) => (Number(m.id) === Number(msg.id) ? { ...m, ...msg } : m)),
-        };
-      }
-      const next = [...list, msg].sort((a, b) => {
-        const sa = Number(a.sequence || Number.MAX_SAFE_INTEGER);
-        const sb = Number(b.sequence || Number.MAX_SAFE_INTEGER);
-        return sa - sb;
-      });
-      return { ...prev, [convId]: next };
-    });
+    setMessagesByConv((prev) => ({
+      ...prev,
+      [convId]: mergeChatMessages(prev[convId], [msg]),
+    }));
   }, []);
 
   const syncReadIfVisible = useCallback(async (cid, maxSequence) => {
@@ -103,9 +239,11 @@ export function ChatProvider({ children }) {
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     const prevSent = Number(lastReadSentRef.current[cid] || 0);
     if (maxSequence <= prevSent) return;
-    lastReadSentRef.current[cid] = maxSequence;
+    const epoch = sessionEpochRef.current;
     try {
       await webChatClient.markRead(cid, maxSequence);
+      if (epoch !== sessionEpochRef.current) return;
+      lastReadSentRef.current[cid] = Math.max(Number(lastReadSentRef.current[cid] || 0), maxSequence);
       setConversations((prev) =>
         prev.map((c) => (Number(c.id) === Number(cid) ? { ...c, unreadCount: 0 } : c)),
       );
@@ -118,9 +256,11 @@ export function ChatProvider({ children }) {
     if (!cid || !maxSequence) return;
     const prevSent = Number(lastDeliveredSentRef.current[cid] || 0);
     if (maxSequence <= prevSent) return;
-    lastDeliveredSentRef.current[cid] = maxSequence;
+    const epoch = sessionEpochRef.current;
     try {
       await webChatClient.markDelivered(cid, maxSequence);
+      if (epoch !== sessionEpochRef.current) return;
+      lastDeliveredSentRef.current[cid] = Math.max(Number(lastDeliveredSentRef.current[cid] || 0), maxSequence);
     } catch {
       // ignore
     }
@@ -129,10 +269,15 @@ export function ChatProvider({ children }) {
   const loadConversationMessages = useCallback(
     async (cid) => {
       if (!cid) return [];
+      const epoch = sessionEpochRef.current;
       const res = await webChatClient.getMessages(cid, { limit: 60 });
+      if (epoch !== sessionEpochRef.current || expiredConversationIdsRef.current.has(Number(cid))) return [];
       const items = res.items || [];
-      setMessagesByConv((prev) => ({ ...prev, [Number(cid)]: items }));
-      const maxSeq = items.reduce((m, x) => Math.max(m, Number(x.sequence || 0)), 0);
+      setMessagesByConv((prev) => ({ ...prev, [Number(cid)]: mergeChatMessages(prev[Number(cid)], items) }));
+      setHistoryByConv((prev) => prev[Number(cid)] ? prev : {
+        ...prev, [Number(cid)]: { hasMore: items.length >= 60, loading: false },
+      });
+      const maxSeq = lastServerSequence(items);
       if (maxSeq > 0) {
         syncDelivered(cid, maxSeq);
         syncReadIfVisible(cid, maxSeq);
@@ -142,6 +287,35 @@ export function ChatProvider({ children }) {
     [syncDelivered, syncReadIfVisible],
   );
 
+  const loadOlderMessages = useCallback(async () => {
+    const cid = Number(activeIdRef.current);
+    if (!cid || loadingHistoryRef.current.has(cid)) return;
+    const sequences = (messagesByConv[cid] || [])
+      .filter((m) => !m.localStatus && Number.isSafeInteger(Number(m.sequence)) && Number(m.sequence) > 0)
+      .map((m) => Number(m.sequence));
+    if (!sequences.length) return;
+    const beforeSequence = Math.min(...sequences);
+    const epoch = sessionEpochRef.current;
+    loadingHistoryRef.current.add(cid);
+    setHistoryByConv((prev) => ({ ...prev, [cid]: { ...prev[cid], loading: true } }));
+    try {
+      const res = await webChatClient.getMessages(cid, { limit: 60, beforeSequence });
+      if (epoch !== sessionEpochRef.current || expiredConversationIdsRef.current.has(cid)) return;
+      const items = res.items || [];
+      setMessagesByConv((prev) => ({ ...prev, [cid]: mergeChatMessages(prev[cid], items) }));
+      setHistoryByConv((prev) => ({ ...prev, [cid]: {
+        loading: false, hasMore: items.length >= 60 && items.some((m) => Number(m.sequence) < beforeSequence),
+      } }));
+    } catch (err) {
+      if (epoch === sessionEpochRef.current) setStatusNotice(err.message || "Không thể tải tin nhắn cũ.");
+    } finally {
+      if (epoch === sessionEpochRef.current) {
+        loadingHistoryRef.current.delete(cid);
+        setHistoryByConv((prev) => prev[cid] ? { ...prev, [cid]: { ...prev[cid], loading: false } } : prev);
+      }
+    }
+  }, [messagesByConv]);
+
   const attachSocketListeners = useCallback(
     (socket) => {
       socket.on("connect", () => {
@@ -150,20 +324,65 @@ export function ChatProvider({ children }) {
         const curId = activeIdRef.current;
         if (curId) {
           socket.emit("conversation:join", { conversationId: curId });
+          loadConversationMessages(curId).catch(() => {});
+          refreshConversation(curId).catch(() => {});
         }
       });
 
       socket.on("disconnect", () => {
         setSocketConnected(false);
+        setStreamingByConv((prev) => Object.fromEntries(
+          Object.entries(prev).map(([cid, stream]) => [cid, { ...stream, done: true, text: "" }]),
+        ));
+        setTypingByConv({});
       });
 
-      socket.on("conversation:updated", ({ conversation, notification }) => {
-        if (conversation) {
-          upsertConversation(conversation);
+      socket.on("conversation:updated", (payload = {}) => {
+        const patch = payload.conversation
+          ? payload.conversation
+          : payload.conversationId
+            ? {
+                id: Number(payload.conversationId),
+                ...(payload.status !== undefined ? { status: payload.status } : {}),
+                ...(payload.handlingMode !== undefined ? { handlingMode: payload.handlingMode } : {}),
+                ...(payload.retentionState !== undefined ? { retentionState: payload.retentionState } : {}),
+                ...(payload.assignedUserId !== undefined ? { assignedUserId: payload.assignedUserId } : {}),
+                ...(payload.assignedManagerName !== undefined ? { assignedManagerName: payload.assignedManagerName } : {}),
+                ...(payload.currentHandoffId !== undefined ? { currentHandoffId: payload.currentHandoffId } : {}),
+                ...(payload.pendingRatingHandoffId !== undefined
+                  ? { pendingRatingHandoffId: payload.pendingRatingHandoffId }
+                  : {}),
+                ...(payload.pendingRatingManagerName !== undefined
+                  ? { pendingRatingManagerName: payload.pendingRatingManagerName }
+                  : {}),
+                ...(payload.managerWaitExpiresAt !== undefined
+                  ? { managerWaitExpiresAt: payload.managerWaitExpiresAt }
+                  : {}),
+                ...(payload.handoffFirstHumanReplyAt !== undefined
+                  ? { handoffFirstHumanReplyAt: payload.handoffFirstHumanReplyAt }
+                  : {}),
+                ...(payload.hasRatedHandoff !== undefined ? { hasRatedHandoff: payload.hasRatedHandoff } : {}),
+              }
+            : null;
+
+        if (patch) {
+          upsertConversation(patch);
         }
-        if (notification) {
-          setStatusNotice(notification);
+        if (payload.notification) {
+          setStatusNotice(payload.notification);
         }
+      });
+
+      socket.on("rating:submitted", (payload = {}) => {
+        const cid = Number(payload.conversationId || 0);
+        if (!cid) return;
+        setConversations((prev) =>
+          prev.map((c) =>
+            Number(c.id) === cid
+              ? { ...c, hasRatedHandoff: true, pendingRatingHandoffId: null }
+              : c,
+          ),
+        );
       });
 
       socket.on("message:created", ({ conversationId, message }) => {
@@ -172,13 +391,37 @@ export function ChatProvider({ children }) {
         appendOrReplaceMessage(cid, message);
 
         // Stop streaming bubble once finalized AI message lands
-        if (message.senderType === "AI") {
-          setStreamingByConv((prev) => {
-            if (!prev[cid]) return prev;
-            const copy = { ...prev };
-            delete copy[cid];
-            return copy;
-          });
+        if (message.senderType === "AI" && message.aiRunId) {
+          setStreamingByConv((prev) => updateAiStream(prev, "completed", { conversationId: cid, runId: message.aiRunId }));
+        }
+
+        const eventKey = `${cid}:${message.id || message.clientMessageId || message.sequence}`;
+        if (receivedMessageKeysRef.current.has(eventKey)) return;
+        receivedMessageKeysRef.current.add(eventKey);
+        if (receivedMessageKeysRef.current.size > 1000) {
+          receivedMessageKeysRef.current.delete(receivedMessageKeysRef.current.values().next().value);
+        }
+
+        // Manager message safety net: immediately clear wait state & enable handoff rating
+        if (message.senderType === "MANAGER" && message.visibility === "PUBLIC") {
+          setConversations((prev) =>
+            prev.map((c) =>
+              Number(c.id) === cid
+                ? {
+                    ...c,
+                    handlingMode: c.handlingMode === "WAITING_HUMAN" ? "HUMAN" : c.handlingMode,
+                    managerWaitExpiresAt: null,
+                    handoffFirstHumanReplyAt:
+                      c.handoffFirstHumanReplyAt || message.createdAt || new Date().toISOString(),
+                    pendingRatingHandoffId:
+                      c.hasRatedHandoff
+                        ? c.pendingRatingHandoffId
+                        : c.pendingRatingHandoffId || message.handoffId || c.currentHandoffId || null,
+                  }
+                : c,
+            ),
+          );
+          refreshConversation(cid).catch(() => {});
         }
 
         const seq = Number(message.sequence || 0);
@@ -266,58 +509,40 @@ export function ChatProvider({ children }) {
       });
 
       socket.on("ai:started", ({ conversationId, runId }) => {
-        const cid = Number(conversationId);
-        setStreamingByConv((prev) => ({
-          ...prev,
-          [cid]: { runId, text: "", startedAt: Date.now() },
-        }));
+        setStreamingByConv((prev) => updateAiStream(prev, "started", { conversationId, runId }));
       });
 
       socket.on("ai:delta", ({ conversationId, runId, delta }) => {
-        const cid = Number(conversationId);
-        setStreamingByConv((prev) => ({
-          ...prev,
-          [cid]: {
-            runId,
-            text: `${prev[cid]?.text || ""}${delta || ""}`,
-            startedAt: prev[cid]?.startedAt || Date.now(),
-          },
-        }));
+        setStreamingByConv((prev) => updateAiStream(prev, "delta", { conversationId, runId, delta }));
       });
 
-      socket.on("ai:completed", ({ conversationId, guestAiCloseAt, messages }) => {
+      socket.on("ai:completed", ({ conversationId, runId, guestAiCloseAt, context, messages }) => {
         const cid = Number(conversationId);
-        setStreamingByConv((prev) => {
-          const copy = { ...prev };
-          delete copy[cid];
-          return copy;
-        });
+        setStreamingByConv((prev) => updateAiStream(prev, "completed", { conversationId, runId }));
         if (Array.isArray(messages)) {
           for (const m of messages) appendOrReplaceMessage(cid, m);
         }
-        if (guestAiCloseAt) {
+        if (guestAiCloseAt || context) {
           setConversations((prev) =>
-            prev.map((c) => (Number(c.id) === cid ? { ...c, guestAiCloseAt } : c)),
+            prev.map((c) =>
+              Number(c.id) === cid
+                ? {
+                    ...c,
+                    ...(guestAiCloseAt ? { guestAiCloseAt } : {}),
+                    ...(context ? { context } : {}),
+                  }
+                : c,
+            ),
           );
         }
       });
 
-      socket.on("ai:cancelled", ({ conversationId }) => {
-        const cid = Number(conversationId);
-        setStreamingByConv((prev) => {
-          const copy = { ...prev };
-          delete copy[cid];
-          return copy;
-        });
+      socket.on("ai:cancelled", (payload) => {
+        setStreamingByConv((prev) => updateAiStream(prev, "cancelled", payload));
       });
 
-      socket.on("ai:failed", ({ conversationId, message }) => {
-        const cid = Number(conversationId);
-        setStreamingByConv((prev) => {
-          const copy = { ...prev };
-          delete copy[cid];
-          return copy;
-        });
+      socket.on("ai:failed", ({ conversationId, runId, message }) => {
+        setStreamingByConv((prev) => updateAiStream(prev, "failed", { conversationId, runId }));
         if (message) {
           setStatusNotice(message);
         }
@@ -331,21 +556,15 @@ export function ChatProvider({ children }) {
         }));
       });
 
-      socket.on("handoff:missed", ({ conversationId, message }) => {
-        setStatusNotice(
-          message ||
-            "Quản lý chưa tiếp nhận yêu cầu trong 5 phút. Hệ thống đã ghi nhận báo cáo và chuyển về trạng thái phù hợp.",
-        );
+      socket.on("handoff:missed", ({ conversationId }) => {
         if (conversationId) {
-          webChatClient
-            .getConversationDetail(conversationId)
-            .then((conv) => upsertConversation(conv))
-            .catch(() => {});
+          refreshConversation(conversationId).catch(() => {});
         }
       });
 
-      socket.on("conversation:expired", ({ conversationId, reason, message }) => {
+      socket.on("conversation:expired", ({ conversationId }) => {
         const cid = Number(conversationId);
+        expiredConversationIdsRef.current.add(cid);
         setConversations((prev) => prev.filter((c) => Number(c.id) !== cid));
         setMessagesByConv((prev) => {
           const copy = { ...prev };
@@ -358,14 +577,9 @@ export function ChatProvider({ children }) {
           return copy;
         });
         if (Number(activeIdRef.current) === cid) {
+          activeIdRef.current = null;
           setActiveConversationId(null);
         }
-        setStatusNotice(
-          message ||
-            (reason === "MANAGER_WAIT_TIMEOUT"
-              ? "Quản lý cơ sở chưa phản hồi trong 5 phút. Phiên trò chuyện tạm thời đã được đóng và xóa sạch theo chính sách ẩn danh."
-              : "Phiên trò chuyện tạm thời đã tự động kết thúc và xóa sạch dữ liệu sau khi không hoạt động."),
-        );
       });
 
       socket.on("access:revoked", () => {
@@ -373,34 +587,43 @@ export function ChatProvider({ children }) {
         setSocketConnected(false);
       });
     },
-    [appendOrReplaceMessage, syncDelivered, syncReadIfVisible, upsertConversation],
+    [appendOrReplaceMessage, loadConversationMessages, refreshConversation, syncDelivered, syncReadIfVisible, upsertConversation],
   );
 
   const ensureRealtimeConnected = useCallback(async () => {
+    const epoch = sessionEpochRef.current;
     const socket = await webChatClient.connectSocket();
+    if (epoch !== sessionEpochRef.current) return null;
     if (!socket._vpsListenersAttached) {
       attachSocketListeners(socket);
       socket._vpsListenersAttached = true;
     }
+    if (!socket.connected) socket.connect();
     return socket;
   }, [attachSocketListeners]);
 
   const hydrateChatSession = useCallback(
-    async ({ shouldClaimGuest = false } = {}) => {
+    async ({ shouldClaimGuest = false, isCurrent = () => true } = {}) => {
       try {
         if (shouldClaimGuest) {
           await webChatClient.claimGuestConversations().catch(() => {});
         }
+        if (!isCurrent()) return;
+        const revision = conversationRevisionRef.current;
         const boot = await webChatClient.bootstrap();
-        setActor(boot.actor || null);
+        if (!isCurrent()) return;
         setGreetingText(boot.greetingText || "");
         setFeaturedLocations(boot.featuredLocations || []);
+        // Opening chat or receiving a realtime update can overtake bootstrap.
+        if (revision !== conversationRevisionRef.current) return;
+        setActor(boot.actor || null);
         const list = boot.conversations || [];
         setConversations(list);
 
         if (boot.actor) {
           await ensureRealtimeConnected().catch(() => {});
         }
+        if (!isCurrent()) return;
 
         if (list.length > 0 && !activeIdRef.current) {
           const first = list[0];
@@ -417,6 +640,7 @@ export function ChatProvider({ children }) {
 
   // Key chat initialization strictly on stable user identity, never tearing down during isCheckingAuthen
   useEffect(() => {
+    sessionEpochRef.current += 1;
     if (isCheckingAuthen) return;
     const prevId = prevCustomerIdRef.current;
     const changed = prevId !== undefined && prevId !== stableCustomerId;
@@ -427,19 +651,35 @@ export function ChatProvider({ children }) {
       await Promise.resolve();
       if (!active) return;
       if (changed) {
+        manualContextPageKeyRef.current = null;
+        pendingPageSyncRef.current = null;
+        contextMutationVersionRef.current += 1;
         webChatClient.disconnectSocket();
         setSocketConnected(false);
         lastReadSentRef.current = {};
         lastDeliveredSentRef.current = {};
-        if (!stableCustomerId) {
-          // Customer logged out -> reset old private threads
-          setConversations([]);
-          setMessagesByConv({});
-          setActiveConversationId(null);
-        }
+        receivedMessageKeysRef.current.clear();
+        expiredConversationIdsRef.current.clear();
+        // Reset on every account change, including Customer A -> Customer B.
+        setConversations([]);
+        setMessagesByConv({});
+        setHistoryByConv({});
+        loadingHistoryRef.current.clear();
+        setStreamingByConv({});
+        setTypingByConv({});
+        setActor(null);
+        setActiveConversationId(null);
+        activeIdRef.current = null;
+        actorRef.current = null;
+        setHandoffGuideState({ open: false });
+        setStatusNotice("");
+        setLoading(false);
       }
       const becameCustomer = changed && Boolean(stableCustomerId);
-      await hydrateChatSession({ shouldClaimGuest: becameCustomer || Boolean(stableCustomerId) });
+      await hydrateChatSession({
+        shouldClaimGuest: becameCustomer || Boolean(stableCustomerId),
+        isCurrent: () => active,
+      });
     }
 
     syncIdentity();
@@ -448,97 +688,157 @@ export function ChatProvider({ children }) {
     };
   }, [isCheckingAuthen, stableCustomerId, hydrateChatSession]);
 
-  // Open or focus widget with current page context
+  useEffect(() => () => {
+    sessionEpochRef.current += 1;
+    webChatClient.disconnectSocket();
+  }, []);
+
+  // Open or focus unified single-thread widget with current page context
   const openChatWidget = useCallback(
     async ({ forceContextCard = false, scopeType = null, accommodationId = null, autoRequestHandoff = false } = {}) => {
+      conversationRevisionRef.current += 1;
       setIsOpen(true);
+      isOpenRef.current = true;
       setHandoffGuideState({ open: false });
+      setStatusNotice("");
+
+      const currentUnified = conversations[0] || null;
+      const targetAccomCheck = accommodationId ? Number(accommodationId) : null;
+      if (
+        currentUnified &&
+        currentUnified.status === "OPEN" &&
+        currentUnified.handlingMode !== "AI" &&
+        targetAccomCheck &&
+        Number(currentUnified.accommodationId) !== targetAccomCheck
+      ) {
+        setActiveConversationId(currentUnified.id);
+        setStatusNotice(
+          currentUnified.handlingMode === "WAITING_HUMAN"
+            ? "Bạn đang chờ Quản lý cơ sở hiện tại. Vui lòng nhấn Hủy chờ nếu muốn đổi sang cơ sở khác."
+            : "Bạn đang trao đổi trực tiếp với Quản lý cơ sở hiện tại. Hãy hoàn tất phiên trao đổi này trước khi chuyển sang cơ sở khác.",
+        );
+        await loadConversationMessages(currentUnified.id).catch(() => {});
+        return currentUnified;
+      }
+
       setLoading(true);
+      const epoch = sessionEpochRef.current;
       try {
-        const ctxNow = pageContextRef.current;
+        const viewingContext = pageContextRef.current;
+        const ctxNow = !accommodationId && manualContextPageKeyRef.current === viewingContext.contextKey
+          ? currentUnified?.context?.pageContext || viewingContext
+          : viewingContext;
+        if (accommodationId) manualContextPageKeyRef.current = viewingContext.contextKey;
         const resolvedScope =
           scopeType ||
           (accommodationId || ctxNow.pageType === "ACCOMMODATION_DETAIL" ? "PROPERTY" : "PLATFORM");
         const resolvedAccomId =
           resolvedScope === "PROPERTY" ? accommodationId || ctxNow.accommodationId : null;
 
-        const openRes = await webChatClient.openOrReuseConversation({
-          scopeType: resolvedScope,
-          accommodationId: resolvedAccomId,
-          bookingId: ctxNow.bookingId || undefined,
-          clientRequestId: makeClientId(),
-          pageContext: {
-            ...ctxNow,
-            accommodationId: resolvedAccomId || ctxNow.accommodationId,
-            attachContextCard: forceContextCard ? true : ctxNow.pageType !== "HOME",
-          },
+        const openRes = await runContextMutation(async () => {
+          const opened = await webChatClient.openOrReuseConversation({
+            scopeType: resolvedScope,
+            accommodationId: resolvedAccomId,
+            bookingId: accommodationId ? undefined : ctxNow.bookingId || undefined,
+            clientRequestId: makeClientId(),
+            pageContext: {
+              ...ctxNow,
+              ...(accommodationId ? { pageType: "ACCOMMODATION_DETAIL", bookingId: null, bookingCode: null } : {}),
+              accommodationId: resolvedAccomId || ctxNow.accommodationId,
+              attachContextCard: forceContextCard ? true : ctxNow.pageType !== "HOME",
+            },
+          });
+          if (autoRequestHandoff && epoch === sessionEpochRef.current && opened.conversation?.handlingMode === "AI") {
+            const handoff = await webChatClient.requestHandoff(opened.conversation.id, {
+              accommodationId: Number(opened.conversation.accommodationId),
+              reason: "Khách yêu cầu gặp Quản lý trực tiếp từ thẻ cơ sở",
+            });
+            return { ...opened, conversation: handoff?.conversation || opened.conversation,
+              handoffNotice: handoff?.supported === false ? handoff.message : null };
+          }
+          return opened;
         });
+        if (!openRes || epoch !== sessionEpochRef.current) return null;
 
         setActor((prev) => prev || { type: stableCustomerId ? "CUSTOMER" : "GUEST" });
         upsertConversation(openRes.conversation);
+        activeIdRef.current = openRes.conversation.id;
         setActiveConversationId(openRes.conversation.id);
         setMessagesByConv((prev) => ({
           ...prev,
-          [Number(openRes.conversation.id)]: openRes.messages || [],
+          [Number(openRes.conversation.id)]: mergeChatMessages(prev[Number(openRes.conversation.id)], openRes.messages),
         }));
 
         const socket = await ensureRealtimeConnected().catch(() => null);
+        if (epoch !== sessionEpochRef.current) return null;
         if (socket && socket.connected) {
           socket.emit("conversation:join", { conversationId: openRes.conversation.id });
         }
 
-        const maxSeq = (openRes.messages || []).reduce((m, x) => Math.max(m, Number(x.sequence || 0)), 0);
+        const maxSeq = lastServerSequence(openRes.messages);
         if (maxSeq > 0) {
           syncReadIfVisible(openRes.conversation.id, maxSeq);
         }
 
-        if (autoRequestHandoff && resolvedScope === "PROPERTY") {
-          const handoffRes = await webChatClient.requestHandoff(openRes.conversation.id, {
-            reason: "Khách yêu cầu gặp Quản lý trực tiếp từ trang chi tiết cơ sở",
-          });
-          if (handoffRes?.conversation) {
-            upsertConversation(handoffRes.conversation);
-          }
-          await loadConversationMessages(openRes.conversation.id);
-        }
+        if (openRes.handoffNotice) setStatusNotice(openRes.handoffNotice);
+        if (autoRequestHandoff) await loadConversationMessages(openRes.conversation.id);
 
         return openRes.conversation;
       } catch (err) {
+        if (epoch !== sessionEpochRef.current) return null;
         setStatusNotice(err.message || "Không thể mở hội thoại lúc này.");
         return null;
       } finally {
-        setLoading(false);
+        if (epoch === sessionEpochRef.current) setLoading(false);
       }
     },
-    [stableCustomerId, upsertConversation, ensureRealtimeConnected, syncReadIfVisible, loadConversationMessages],
+    [
+      conversations,
+      stableCustomerId,
+      upsertConversation,
+      ensureRealtimeConnected,
+      syncReadIfVisible,
+      loadConversationMessages,
+      runContextMutation,
+    ],
   );
 
-  // When widget is already open and user navigates to a new location / hotel / booking, sync context cleanly
+  // When widget is already open in AI mode and user navigates to a new location / hotel / booking, sync context seamlessly into the unified stream
   useEffect(() => {
     if (!isOpen || !activeConversationId || !actor) return;
     const conv = conversations.find((c) => Number(c.id) === Number(activeConversationId));
-    if (!conv || conv.status !== "OPEN") return;
+    if (!conv || conv.status !== "OPEN" || conv.handlingMode !== "AI") return;
     if (pageContext.contextKey === "HOME") return;
+    if (manualContextPageKeyRef.current === pageContext.contextKey) return;
     if (conv.context?.lastAttachedContextKey === pageContext.contextKey) return;
 
-    // For a PROPERTY conversation, only sync if viewing same accommodation; if user moved to a different property, show choice pill / allow auto-attach only on PLATFORM or matching property
-    if (
-      conv.scopeType === "PROPERTY" &&
-      pageContext.pageType === "ACCOMMODATION_DETAIL" &&
-      Number(conv.accommodationId) !== Number(pageContext.accommodationId)
-    ) {
-      return;
-    }
-
-    webChatClient
-      .updateContext(conv.id, { ...pageContext, attachContextCard: true })
+    const syncKey = `${conv.id}:${pageContext.contextKey}`;
+    if (pendingPageSyncRef.current === syncKey) return;
+    pendingPageSyncRef.current = syncKey;
+    manualContextPageKeyRef.current = null;
+    const epoch = sessionEpochRef.current;
+    runContextMutation(() => webChatClient.updateContext(conv.id, { ...pageContext, attachContextCard: true }))
       .then((updated) => {
+        if (!updated || epoch !== sessionEpochRef.current) return;
         upsertConversation(updated);
+        return loadConversationMessages(conv.id);
       })
-      .catch(() => {});
-  }, [isOpen, activeConversationId, actor, pageContext, conversations, upsertConversation]);
+      .catch(() => {})
+      .finally(() => {
+        if (pendingPageSyncRef.current === syncKey) pendingPageSyncRef.current = null;
+      });
+  }, [
+    isOpen,
+    activeConversationId,
+    actor,
+    pageContext,
+    conversations,
+    upsertConversation,
+    loadConversationMessages,
+    runContextMutation,
+  ]);
 
-  // Load messages and join room when switching active conversation while widget is open
+  // Load messages + refresh conversation detail and join room when switching active conversation while widget is open
   useEffect(() => {
     if (!isOpen || !activeConversationId) return;
     const cid = Number(activeConversationId);
@@ -546,6 +846,7 @@ export function ChatProvider({ children }) {
     Promise.resolve().then(() => {
       if (!active) return;
       loadConversationMessages(cid).catch(() => {});
+      refreshConversation(cid).catch(() => {});
       if (webChatClient.socket?.connected) {
         webChatClient.socket.emit("conversation:join", { conversationId: cid });
       }
@@ -553,18 +854,21 @@ export function ChatProvider({ children }) {
     return () => {
       active = false;
     };
-  }, [isOpen, activeConversationId, loadConversationMessages]);
+  }, [isOpen, activeConversationId, loadConversationMessages, refreshConversation]);
 
-  // Read sync on tab focus / visibility change
+  // Read + state sync on tab focus / visibility change
   useEffect(() => {
     function onVisibleOrFocus() {
       if (!isOpenRef.current || !activeIdRef.current) return;
       if (document.visibilityState !== "visible") return;
-      const msgs = messagesByConv[Number(activeIdRef.current)] || [];
-      const maxSeq = msgs.reduce((m, x) => Math.max(m, Number(x.sequence || 0)), 0);
+      const cid = Number(activeIdRef.current);
+      loadConversationMessages(cid).catch(() => {});
+      const msgs = messagesByConv[cid] || [];
+      const maxSeq = lastServerSequence(msgs);
       if (maxSeq > 0) {
-        syncReadIfVisible(activeIdRef.current, maxSeq);
+        syncReadIfVisible(cid, maxSeq);
       }
+      refreshConversation(cid).catch(() => {});
     }
     window.addEventListener("focus", onVisibleOrFocus);
     document.addEventListener("visibilitychange", onVisibleOrFocus);
@@ -572,7 +876,7 @@ export function ChatProvider({ children }) {
       window.removeEventListener("focus", onVisibleOrFocus);
       document.removeEventListener("visibilitychange", onVisibleOrFocus);
     };
-  }, [messagesByConv, syncReadIfVisible]);
+  }, [messagesByConv, loadConversationMessages, refreshConversation, syncReadIfVisible]);
 
   const sendMessage = useCallback(
     async (text) => {
@@ -580,8 +884,9 @@ export function ChatProvider({ children }) {
       if (!clean) return;
 
       let cid = activeIdRef.current;
-      if (!cid) {
-        const opened = await openChatWidget();
+      const curConv = conversations.find((c) => Number(c.id) === Number(cid));
+      if (!cid || curConv?.status === "RESOLVED") {
+        const opened = await openChatWidget({ forceContextCard: false });
         cid = opened?.id;
         if (!cid) return;
       }
@@ -590,7 +895,7 @@ export function ChatProvider({ children }) {
       const optimisticMsg = {
         id: `temp-${clientMessageId}`,
         conversationId: Number(cid),
-        sequence: Number.MAX_SAFE_INTEGER - Math.floor(Math.random() * 1000),
+        sequence: Number.MAX_SAFE_INTEGER,
         senderActorKey: actorRef.current?.actorKey || "self",
         senderType: stableCustomerId ? "CUSTOMER" : "GUEST",
         messageType: "TEXT",
@@ -603,11 +908,13 @@ export function ChatProvider({ children }) {
 
       appendOrReplaceMessage(cid, optimisticMsg);
 
+      const epoch = sessionEpochRef.current;
       try {
         const res = await webChatClient.sendMessage(cid, {
           content: clean,
           clientMessageId,
         });
+        if (epoch !== sessionEpochRef.current) return;
         if (res?.message) {
           appendOrReplaceMessage(cid, res.message);
         }
@@ -615,28 +922,32 @@ export function ChatProvider({ children }) {
           upsertConversation(res.conversation);
         }
       } catch (err) {
+        if (epoch !== sessionEpochRef.current) return;
         setMessagesByConv((prev) => ({
           ...prev,
           [Number(cid)]: (prev[Number(cid)] || []).map((m) =>
-            m.clientMessageId === clientMessageId ? { ...m, localStatus: "failed" } : m,
+            m.clientMessageId === clientMessageId && m.localStatus === "sending" ? { ...m, localStatus: "failed" } : m,
           ),
         }));
         setStatusNotice(err.message || "Không thể gửi tin nhắn.");
       }
     },
-    [stableCustomerId, openChatWidget, appendOrReplaceMessage, upsertConversation],
+    [conversations, stableCustomerId, openChatWidget, appendOrReplaceMessage, upsertConversation],
   );
 
   const selectDestinationInChat = useCallback(
     async (locationObj) => {
       if (!locationObj?.id) return;
       let cid = activeIdRef.current;
-      if (!cid) {
-        const opened = await openChatWidget();
+      const curConv = conversations.find((c) => Number(c.id) === Number(cid));
+      if (!cid || curConv?.status === "RESOLVED") {
+        const opened = await openChatWidget({ forceContextCard: false });
         cid = opened?.id;
         if (!cid) return;
       }
-      const updated = await webChatClient.updateContext(cid, {
+      const epoch = sessionEpochRef.current;
+      manualContextPageKeyRef.current = pageContextRef.current.contextKey;
+      const updated = await runContextMutation(() => webChatClient.updateContext(cid, {
         pageType: "LOCATION_SEARCH",
         locationId: Number(locationObj.id),
         checkin: pageContextRef.current.checkin,
@@ -645,11 +956,12 @@ export function ChatProvider({ children }) {
         adults: pageContextRef.current.adults,
         children: pageContextRef.current.children,
         attachContextCard: true,
-      });
+      }));
+      if (!updated || epoch !== sessionEpochRef.current) return;
       upsertConversation(updated);
       await loadConversationMessages(cid);
     },
-    [openChatWidget, upsertConversation, loadConversationMessages],
+    [conversations, openChatWidget, upsertConversation, loadConversationMessages, runContextMutation],
   );
 
   const selectPropertyInChat = useCallback(
@@ -666,24 +978,27 @@ export function ChatProvider({ children }) {
 
   const requestHumanHandoff = useCallback(async () => {
     let cid = activeIdRef.current;
-    if (!cid) {
-      const opened = await openChatWidget();
+    let conv = conversations.find((c) => Number(c.id) === Number(cid));
+    if (!cid || conv?.status === "RESOLVED") {
+      const opened = await openChatWidget({ forceContextCard: false });
       cid = opened?.id;
+      conv = opened || conv;
     }
     if (!cid) return;
 
-    const conv = conversations.find((c) => Number(c.id) === Number(cid));
     if (!conv || conv.scopeType !== "PROPERTY" || !conv.accommodationId) {
-      // Polite guided flow on HOME/SEARCH: Step 1 Destination -> Step 2 Property
-      setHandoffGuideState({ open: true });
+      setHandoffGuideState(resolveHandoffGuideState(conv, messagesByConv[Number(cid)] || []));
       return;
     }
 
     setLoading(true);
+    const epoch = sessionEpochRef.current;
     try {
       const res = await webChatClient.requestHandoff(cid, {
+        accommodationId: Number(conv.accommodationId),
         reason: "Khách yêu cầu kết nối Quản lý cơ sở",
       });
+      if (epoch !== sessionEpochRef.current) return;
       if (res?.conversation) {
         upsertConversation(res.conversation);
       }
@@ -692,28 +1007,52 @@ export function ChatProvider({ children }) {
       }
       await loadConversationMessages(cid);
     } catch (err) {
+      if (epoch !== sessionEpochRef.current) return;
       if (err.errorCode === "PROPERTY_SELECTION_REQUIRED") {
-        setHandoffGuideState({ open: true });
+        setHandoffGuideState(resolveHandoffGuideState(conv, messagesByConv[Number(cid)] || []));
       } else {
         setStatusNotice(err.message || "Không thể kết nối Quản lý lúc này.");
       }
     } finally {
-      setLoading(false);
+      if (epoch === sessionEpochRef.current) setLoading(false);
     }
-  }, [conversations, openChatWidget, upsertConversation, loadConversationMessages]);
+  }, [conversations, messagesByConv, openChatWidget, upsertConversation, loadConversationMessages]);
 
   const cancelHumanHandoff = useCallback(async () => {
     const cid = activeIdRef.current;
     if (!cid) return;
     setLoading(true);
+    const epoch = sessionEpochRef.current;
     try {
       const res = await webChatClient.cancelHandoff(cid);
-      if (res?.conversation) upsertConversation(res.conversation);
+      if (epoch !== sessionEpochRef.current) return;
+      const convObj = res?.conversation || (res?.id ? res : null);
+      if (convObj) upsertConversation(convObj);
       await loadConversationMessages(cid);
     } catch (err) {
+      if (epoch !== sessionEpochRef.current) return;
       setStatusNotice(err.message || "Không thể hủy yêu cầu kết nối.");
     } finally {
-      setLoading(false);
+      if (epoch === sessionEpochRef.current) setLoading(false);
+    }
+  }, [upsertConversation, loadConversationMessages]);
+
+  const returnFromManagerToAi = useCallback(async () => {
+    const cid = activeIdRef.current;
+    if (!cid) return;
+    setLoading(true);
+    const epoch = sessionEpochRef.current;
+    try {
+      const res = await webChatClient.returnToAi(cid);
+      if (epoch !== sessionEpochRef.current) return;
+      const convObj = res?.conversation || (res?.id ? res : null);
+      if (convObj) upsertConversation(convObj);
+      await loadConversationMessages(cid);
+    } catch (err) {
+      if (epoch !== sessionEpochRef.current) return;
+      setStatusNotice(err.message || "Không thể chuyển về Trợ lý AI lúc này.");
+    } finally {
+      if (epoch === sessionEpochRef.current) setLoading(false);
     }
   }, [upsertConversation, loadConversationMessages]);
 
@@ -721,8 +1060,10 @@ export function ChatProvider({ children }) {
     const cid = activeIdRef.current;
     if (!cid) return;
     setLoading(true);
+    const epoch = sessionEpochRef.current;
     try {
       await webChatClient.endGuestConversation(cid);
+      if (epoch !== sessionEpochRef.current) return;
       setConversations((prev) => prev.filter((c) => Number(c.id) !== Number(cid)));
       setMessagesByConv((prev) => {
         const copy = { ...prev };
@@ -730,25 +1071,40 @@ export function ChatProvider({ children }) {
         return copy;
       });
       setActiveConversationId(null);
-      setStatusNotice("Phiên trò chuyện tạm thời đã được kết thúc và xóa sạch khỏi hệ thống.");
+      setStatusNotice("");
     } catch (err) {
-      setStatusNotice(err.message || "Không thể kết thúc phiên trò chuyện.");
+      if (epoch !== sessionEpochRef.current) return;
+      setStatusNotice(err.message || "Không thể kết thúc cuộc trò chuyện.");
     } finally {
-      setLoading(false);
+      if (epoch === sessionEpochRef.current) setLoading(false);
     }
   }, []);
 
   const submitRating = useCallback(
     async (handoffId, { rating, comment }) => {
+      const epoch = sessionEpochRef.current;
+      const cid = activeIdRef.current;
       const res = await webChatClient.submitRating(handoffId, { rating, comment });
-      if (activeIdRef.current) {
+      if (epoch !== sessionEpochRef.current) return res;
+      if (cid) {
         setConversations((prev) =>
           prev.map((c) =>
-            Number(c.id) === Number(activeIdRef.current) ? { ...c, hasRatedHandoff: true } : c,
+            Number(c.id) === Number(cid)
+              ? {
+                  ...c,
+                  hasRatedHandoff: true,
+                  pendingRatingHandoffId: null,
+                  lastSubmittedRating: res,
+                }
+              : c,
           ),
         );
       }
-      setStatusNotice("Cảm ơn bạn đã gửi đánh giá chất lượng phục vụ!");
+      setStatusNotice(
+        Number(rating) <= 3
+          ? `Đã ghi nhận đánh giá ${rating}/5 sao và gửi báo cáo tới Quản trị viên VietPeace Stay.`
+          : `Cảm ơn bạn đã đánh giá ${rating}/5 sao chất lượng phục vụ!`,
+      );
       return res;
     },
     [],
@@ -772,13 +1128,30 @@ export function ChatProvider({ children }) {
     [conversations, activeConversationId],
   );
 
+  // Fallback polling while WAITING_HUMAN so timer/state clears even across transient socket drops
+  const activeWaitingId =
+    isOpen && activeConversation?.handlingMode === "WAITING_HUMAN" ? Number(activeConversation.id) : null;
+  useEffect(() => {
+    if (!activeWaitingId) return undefined;
+    const t = setInterval(() => {
+      refreshConversation(activeWaitingId)
+        .then((conv) => {
+          if (conv && conv.handlingMode !== "WAITING_HUMAN") {
+            loadConversationMessages(activeWaitingId).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => clearInterval(t);
+  }, [activeWaitingId, refreshConversation, loadConversationMessages]);
+
   const activeMessages = useMemo(
     () => (activeConversationId ? messagesByConv[Number(activeConversationId)] || [] : []),
     [messagesByConv, activeConversationId],
   );
 
   const activeStreaming = activeConversationId
-    ? streamingByConv[Number(activeConversationId)] || null
+    ? (streamingByConv[Number(activeConversationId)]?.done ? null : streamingByConv[Number(activeConversationId)] || null)
     : null;
 
   const activeTypingName = activeConversationId
@@ -800,6 +1173,9 @@ export function ChatProvider({ children }) {
     activeConversationId,
     setActiveConversationId,
     activeMessages,
+    loadOlderMessages,
+    hasOlderMessages: Boolean(historyByConv[Number(activeConversationId)]?.hasMore),
+    loadingOlderMessages: Boolean(historyByConv[Number(activeConversationId)]?.loading),
     activeStreaming,
     activeTypingName,
     totalUnread,
@@ -814,6 +1190,7 @@ export function ChatProvider({ children }) {
     selectPropertyInChat,
     requestHumanHandoff,
     cancelHumanHandoff,
+    returnFromManagerToAi,
     endGuestSession,
     submitRating,
     emitTyping,

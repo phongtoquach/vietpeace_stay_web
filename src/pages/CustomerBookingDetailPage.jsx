@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { MapPin, ArrowLeft } from 'lucide-react';
 import { formatVND, formatDateVN } from '../utils/bookingUtils.js';
 import RoomTypePriceBreakdownTooltip from '../components/room_types/RoomTypePriceBreakdownTooltip.jsx';
+import BookingCheckoutFolioCard from '../components/BookingCheckoutFolioCard.jsx';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api/web').replace(/\/$/, '');
 const BACKEND_APP_BASE_URL = (import.meta.env.VITE_BACKEND_APP_BASE_URL || 'http://localhost:3002').replace(/\/$/, '');
@@ -150,17 +151,37 @@ export default function CustomerBookingDetailPage() {
 
         async function loadBooking() {
             try {
-                const response = await fetch(
+                const detailPromise = fetch(
                     `${API_BASE_URL}/customer/bookings/booking/${encodeURIComponent(bookingId)}`,
                     { credentials: 'include' }
                 );
+                const folioPromise = fetch(
+                    `${API_BASE_URL}/customer/bookings/${encodeURIComponent(bookingId)}`,
+                    { credentials: 'include' }
+                ).catch(() => null);
+
+                const [response, folioResponse] = await Promise.all([detailPromise, folioPromise]);
                 const payload = await response.json().catch(() => null);
 
                 if (!response.ok || payload?.success !== true || !payload.data) {
                     throw new Error(payload?.message || 'Không thể tải thông tin đặt phòng.');
                 }
 
-                if (!ignore) setResult({ bookingId, booking: payload.data });
+                let folioData = null;
+                if (folioResponse && folioResponse.ok) {
+                    const folioPayload = await folioResponse.json().catch(() => null);
+                    if (folioPayload?.success !== false && folioPayload?.data) {
+                        folioData = folioPayload.data;
+                    }
+                }
+
+                if (!ignore) {
+                    setResult({
+                        bookingId,
+                        booking: payload.data,
+                        folioBooking: folioData ? { ...payload.data, ...folioData } : payload.data,
+                    });
+                }
             } catch (error) {
                 if (!ignore) {
                     setResult({
@@ -182,7 +203,16 @@ export default function CustomerBookingDetailPage() {
 
     const currentResult = result?.bookingId === bookingId ? result : null;
     const booking = currentResult?.booking;
+    const folioBooking = currentResult?.folioBooking;
     const isLoading = isValidBookingId && !currentResult;
+
+    useEffect(() => {
+        if (!folioBooking || window.location.hash !== '#checkout-folio') return;
+        const el = document.getElementById('checkout-folio');
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [folioBooking]);
 
     if (!booking || !isValidBookingId) {
         return (
@@ -389,6 +419,12 @@ export default function CustomerBookingDetailPage() {
                     )}
 
                 </div>
+
+                {folioBooking && (
+                    <div style={{ marginTop: '1.5rem' }}>
+                        <BookingCheckoutFolioCard booking={folioBooking} apiBaseUrl={API_BASE_URL} />
+                    </div>
+                )}
 
             </div>
 

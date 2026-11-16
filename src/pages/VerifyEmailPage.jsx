@@ -10,41 +10,41 @@ import {
 } from 'lucide-react';
 import {
   resendCustomerVerification,
+  verifyCustomerEmailCode,
   verifyCustomerEmailToken,
 } from '../utils/authApi.js';
 import '../assets/styles/register.css';
+import { customerLoginHref, resolveSafeReturnUrl } from '../utils/authReturnUrl.js';
 
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-
-// Chống gọi POST hai lần khi React StrictMode mount lại trong môi trường dev.
 const verifyTokenRequests = new Map();
 
 function verifyTokenOnce(token) {
   if (!verifyTokenRequests.has(token)) {
-    const requestPromise = verifyCustomerEmailToken(token).catch((err) => {
-      verifyTokenRequests.delete(token);
-      throw err;
-    });
+    const requestPromise = verifyCustomerEmailToken(token).finally(() => verifyTokenRequests.delete(token));
     verifyTokenRequests.set(token, requestPromise);
   }
   return verifyTokenRequests.get(token);
 }
 
-function VerifyEmailContent({ token, loginHref }) {
-  const resendInputId = useId();
-  const resendErrorId = useId();
+function VerifyEmailContent({ token, initialEmail, loginHref, returnUrl }) {
+  const emailInputId = useId();
+  const codeInputId = useId();
 
-  const [status, setStatus] = useState(token ? 'loading' : 'error');
+  const [status, setStatus] = useState(token ? 'loading' : 'form');
   const [resultMessage, setResultMessage] = useState(
     token
       ? 'Đang xác thực địa chỉ email của bạn...'
-      : 'Thiếu mã xác thực email trong đường dẫn. Vui lòng mở lại liên kết trong hộp thư hoặc yêu cầu gửi lại email mới.',
+      : 'Nhập email đăng ký và mã xác nhận 6 chữ số trong hộp thư (hoặc thực hiện trực tiếp tại trang Đăng nhập).',
   );
   const [verifiedEmail, setVerifiedEmail] = useState('');
   const [alreadyVerified, setAlreadyVerified] = useState(false);
 
-  const [resendEmail, setResendEmail] = useState('');
-  const [resendEmailError, setResendEmailError] = useState('');
+  const [email, setEmail] = useState(initialEmail);
+  const [code, setCode] = useState('');
+  const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [resendFeedback, setResendFeedback] = useState(null);
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -53,7 +53,6 @@ function VerifyEmailContent({ token, loginHref }) {
     if (!token) return undefined;
 
     let cancelled = false;
-
     verifyTokenOnce(token)
       .then(({ ok, data }) => {
         if (cancelled) return;
@@ -62,13 +61,11 @@ function VerifyEmailContent({ token, loginHref }) {
           setAlreadyVerified(Boolean(data?.data?.alreadyVerified));
           setVerifiedEmail(data?.data?.email || '');
           setResultMessage(
-            data?.message || 'Xác thực email thành công! Bạn có thể đăng nhập ngay.',
+            data?.message || 'Kích hoạt tài khoản thành công! Bạn có thể đăng nhập ngay.',
           );
         } else {
           setStatus('error');
-          if (data?.data?.email) {
-            setResendEmail(data.data.email);
-          }
+          if (data?.data?.email) setEmail(data.data.email);
           setResultMessage(
             data?.message || 'Liên kết xác thực không hợp lệ hoặc đã hết hạn.',
           );
@@ -78,7 +75,7 @@ function VerifyEmailContent({ token, loginHref }) {
         if (cancelled) return;
         setStatus('error');
         setResultMessage(
-          'Không thể kết nối đến máy chủ để xác thực email. Vui lòng thử tải lại trang.',
+          'Không thể kết nối đến máy chủ để xác thực email. Vui lòng thử lại.',
         );
       });
 
@@ -95,21 +92,59 @@ function VerifyEmailContent({ token, loginHref }) {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  async function handleResendSubmit(event) {
+  async function handleCodeVerifySubmit(event) {
     event.preventDefault();
+    if (isSubmitting) return;
+
+    const trimmedEmail = email.trim();
+    const trimmedCode = code.trim();
+    if (!trimmedEmail || !EMAIL_REGEX.test(trimmedEmail)) {
+      setFormError('Vui lòng nhập email đã đăng ký.');
+      return;
+    }
+    if (!/^\d{6}$/.test(trimmedCode)) {
+      setFormError('Mã xác nhận phải gồm đúng 6 chữ số.');
+      return;
+    }
+
+    setFormError('');
+    setResendFeedback(null);
+    setIsSubmitting(true);
+
+    try {
+      const { ok, data } = await verifyCustomerEmailCode({
+        email: trimmedEmail,
+        code: trimmedCode,
+      });
+
+      if (!ok || !data?.success) {
+        setFormError(data?.message || 'Không thể xác nhận mã lúc này.');
+        return;
+      }
+
+      setStatus('success');
+      setAlreadyVerified(Boolean(data?.data?.alreadyVerified));
+      setVerifiedEmail(data?.data?.email || trimmedEmail);
+      setResultMessage(
+        data?.message || 'Tài khoản đã được kích hoạt thành công! Bạn có thể đăng nhập ngay.',
+      );
+    } catch {
+      setFormError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleResendClick() {
     if (isResending || resendCooldown > 0) return;
 
-    const trimmedEmail = resendEmail.trim();
-    if (!trimmedEmail) {
-      setResendEmailError('Vui lòng nhập email đã đăng ký.');
-      return;
-    }
-    if (!EMAIL_REGEX.test(trimmedEmail)) {
-      setResendEmailError('Email không đúng định dạng.');
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !EMAIL_REGEX.test(trimmedEmail)) {
+      setFormError('Vui lòng nhập đúng email trước khi yêu cầu gửi lại mã.');
       return;
     }
 
-    setResendEmailError('');
+    setFormError('');
     setResendFeedback(null);
     setIsResending(true);
 
@@ -121,7 +156,7 @@ function VerifyEmailContent({ token, loginHref }) {
         }
         setResendFeedback({
           type: 'error',
-          text: data?.message || 'Không thể gửi lại email xác thực.',
+          text: data?.message || 'Không thể gửi lại mã xác nhận.',
         });
         return;
       }
@@ -129,10 +164,9 @@ function VerifyEmailContent({ token, loginHref }) {
       setResendCooldown(data?.data?.cooldownSeconds || 60);
       setResendFeedback({
         type: 'success',
-        text: data?.message || 'Đã gửi lại liên kết xác thực mới đến email của bạn.',
+        text: data?.message || 'Đã gửi lại mã xác nhận mới tới email của bạn.',
       });
-    } catch (error) {
-      console.error('[VerifyEmailPage] Resend failed:', error);
+    } catch {
       setResendFeedback({
         type: 'error',
         text: 'Không thể kết nối đến máy chủ. Vui lòng thử lại sau.',
@@ -145,7 +179,7 @@ function VerifyEmailContent({ token, loginHref }) {
   return (
     <main className="register-page">
       <div className="verify-page-shell">
-        <section className="register-card" aria-label="Xác thực email tài khoản">
+        <section className="register-card" aria-label="Xác nhận kích hoạt tài khoản">
           <div className="register-verify-panel">
             <div
               className={`register-verify-badge ${
@@ -160,8 +194,10 @@ function VerifyEmailContent({ token, loginHref }) {
                 <Loader2 size={28} className="register-spin" aria-hidden="true" />
               ) : status === 'success' ? (
                 <CheckCircle2 size={28} aria-hidden="true" />
-              ) : (
+              ) : status === 'error' ? (
                 <AlertCircle size={28} aria-hidden="true" />
+              ) : (
+                <MailCheck size={28} aria-hidden="true" />
               )}
             </div>
 
@@ -169,12 +205,12 @@ function VerifyEmailContent({ token, loginHref }) {
               <span className="register-card-eyebrow">VIETPEACE STAY · KÍCH HOẠT TÀI KHOẢN</span>
               <h1 className="register-verify-heading">
                 {status === 'loading'
-                  ? 'Đang xác thực email...'
+                  ? 'Đang xác thực tài khoản...'
                   : status === 'success'
                   ? alreadyVerified
-                    ? 'Email đã được xác thực'
-                    : 'Xác thực email thành công!'
-                  : 'Không thể xác thực email'}
+                    ? 'Tài khoản đã được kích hoạt'
+                    : 'Kích hoạt tài khoản thành công!'
+                  : 'Xác nhận mã kích hoạt email'}
               </h1>
             </div>
 
@@ -184,16 +220,16 @@ function VerifyEmailContent({ token, loginHref }) {
                   ? 'register-message--success'
                   : status === 'error'
                   ? 'register-message--error'
-                  : ''
+                  : 'register-message--warning'
               }`}
               role={status === 'error' ? 'alert' : 'status'}
             >
               {status === 'success' ? (
                 <MailCheck aria-hidden="true" />
-              ) : status === 'error' ? (
-                <AlertCircle aria-hidden="true" />
-              ) : (
+              ) : status === 'loading' ? (
                 <Loader2 className="register-spin" aria-hidden="true" />
+              ) : (
+                <AlertCircle aria-hidden="true" />
               )}
               <span>
                 {resultMessage}
@@ -206,35 +242,35 @@ function VerifyEmailContent({ token, loginHref }) {
               </span>
             </div>
 
-            {status === 'success' && (
+            {status === 'success' ? (
               <div className="register-verify-actions">
-                <Link className="register-submit" to={loginHref}>
+                <Link
+                  className="register-submit"
+                  to={
+                    verifiedEmail
+                      ? customerLoginHref({ email: verifiedEmail, returnUrl })
+                      : loginHref
+                  }
+                >
                   Đăng nhập ngay <ArrowRight size={18} aria-hidden="true" />
                 </Link>
                 <Link className="register-secondary-btn" to="/">
                   Về trang chủ
                 </Link>
               </div>
-            )}
-
-            {status === 'error' && (
+            ) : status !== 'loading' ? (
               <>
-                <form method="POST" onSubmit={handleResendSubmit} noValidate>
-                  <div className="register-field">
-                    <label htmlFor={resendInputId}>
-                      Gửi lại liên kết xác thực mới
-                    </label>
-                    <span className="register-hint">
-                      Nhập email bạn đã dùng để đăng ký để nhận liên kết xác thực mới.
-                    </span>
+                <form method="POST" onSubmit={handleCodeVerifySubmit} noValidate>
+                  <div className="register-field" style={{ marginBottom: '12px' }}>
+                    <label htmlFor={emailInputId}>Email đã đăng ký</label>
                     <input
-                      id={resendInputId}
+                      id={emailInputId}
                       name="email"
                       type="email"
-                      value={resendEmail}
+                      value={email}
                       onChange={(e) => {
-                        setResendEmail(e.target.value);
-                        if (resendEmailError) setResendEmailError('');
+                        setEmail(e.target.value);
+                        if (formError) setFormError('');
                       }}
                       autoComplete="username"
                       autoCapitalize="none"
@@ -242,23 +278,43 @@ function VerifyEmailContent({ token, loginHref }) {
                       spellCheck={false}
                       placeholder="ban@email.com"
                       required
-                      disabled={isResending}
-                      className={resendEmailError ? 'register-input--invalid' : ''}
-                      aria-invalid={resendEmailError ? 'true' : 'false'}
-                      aria-describedby={resendEmailError ? resendErrorId : undefined}
+                      disabled={isSubmitting}
                     />
-                    {resendEmailError && (
-                      <p id={resendErrorId} className="register-field-error">
-                        <AlertCircle aria-hidden="true" />
-                        <span>{resendEmailError}</span>
-                      </p>
-                    )}
                   </div>
+
+                  <div className="register-field">
+                    <label htmlFor={codeInputId}>Mã xác nhận (6 chữ số)</label>
+                    <input
+                      id={codeInputId}
+                      name="code"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      pattern="\d{6}"
+                      placeholder="Ví dụ: 482915"
+                      value={code}
+                      onChange={(e) => {
+                        setCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                        if (formError) setFormError('');
+                      }}
+                      required
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  {formError && (
+                    <p className="register-field-error" style={{ marginTop: '8px' }} role="alert">
+                      <AlertCircle aria-hidden="true" />
+                      <span>{formError}</span>
+                    </p>
+                  )}
 
                   {resendFeedback && (
                     <div
                       className={`register-message register-message--${resendFeedback.type}`}
                       role={resendFeedback.type === 'error' ? 'alert' : 'status'}
+                      style={{ marginTop: '12px' }}
                     >
                       {resendFeedback.type === 'success' ? (
                         <CheckCircle2 aria-hidden="true" />
@@ -269,36 +325,47 @@ function VerifyEmailContent({ token, loginHref }) {
                     </div>
                   )}
 
-                  <button
-                    type="submit"
-                    className="register-submit"
-                    disabled={isResending || resendCooldown > 0}
-                  >
-                    {isResending ? (
-                      <>
-                        <Loader2 size={18} className="register-spin" aria-hidden="true" />
-                        <span>Đang gửi email xác thực...</span>
-                      </>
-                    ) : resendCooldown > 0 ? (
-                      <>
-                        <RefreshCw size={18} aria-hidden="true" />
-                        <span>Gửi lại sau ({resendCooldown}s)</span>
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw size={18} aria-hidden="true" />
-                        <span>Gửi lại email xác thực</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="register-verify-actions" style={{ marginTop: '16px' }}>
+                    <button
+                      type="submit"
+                      className="register-submit"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 size={18} className="register-spin" aria-hidden="true" />
+                          <span>Đang kiểm tra mã...</span>
+                        </>
+                      ) : (
+                        <>
+                          <MailCheck size={18} aria-hidden="true" />
+                          <span>Xác nhận kích hoạt</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      className="register-secondary-btn"
+                      onClick={handleResendClick}
+                      disabled={isResending || resendCooldown > 0}
+                    >
+                      <RefreshCw size={16} aria-hidden="true" />
+                      <span>
+                        {resendCooldown > 0
+                          ? `Gửi lại mã (${resendCooldown}s)`
+                          : 'Gửi lại mã xác nhận'}
+                      </span>
+                    </button>
+                  </div>
                 </form>
 
                 <p className="register-login">
-                  Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link> ·{' '}
-                  <Link to={loginHref}>Đăng nhập</Link>
+                  Hoặc nhập mã trực tiếp tại{' '}
+                  <Link to={customerLoginHref({ email: email.trim(), returnUrl, requireCode: true })}>Trang Đăng nhập</Link>
                 </p>
               </>
-            )}
+            ) : null}
           </div>
         </section>
       </div>
@@ -308,11 +375,18 @@ function VerifyEmailContent({ token, loginHref }) {
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
-  const token = (searchParams.get('token') || '').trim();
-  const returnUrl = searchParams.get('returnUrl') || '';
-  const loginHref = returnUrl
-    ? `/login?returnUrl=${encodeURIComponent(returnUrl)}`
-    : '/login';
+  const token = searchParams.get('token') || '';
+  const initialEmail = searchParams.get('email') || '';
+  const returnUrl = resolveSafeReturnUrl(searchParams.get('returnUrl'));
+  const loginHref = customerLoginHref({ returnUrl });
 
-  return <VerifyEmailContent key={token || 'missing'} token={token} loginHref={loginHref} />;
+  return (
+    <VerifyEmailContent
+      key={token || initialEmail || 'code-form'}
+      token={token}
+      initialEmail={initialEmail}
+      loginHref={loginHref}
+      returnUrl={returnUrl}
+    />
+  );
 }
