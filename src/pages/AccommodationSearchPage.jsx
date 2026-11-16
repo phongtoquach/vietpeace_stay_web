@@ -104,6 +104,10 @@ export default function AccommodationSearchPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
 
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
+
     // Search parameters from URL (single source of truth)
     const locationId = searchParams.get('locationId') || '';
     const accommodationId = searchParams.get('accommodationId') || '';

@@ -15,7 +15,7 @@ export default function AboutPage() {
             Tôn Vinh Vẻ Đẹp & Lòng Hiếu Khách Việt Nam
           </h1>
           <p style={{ fontSize: '1rem', color: 'var(--color-slate)', marginTop: '12px', lineHeight: 1.6 }}>
-            Tập đoàn Khách sạn & Nghỉ dưỡng VinaStay sở hữu và trực tiếp vận hành mạng lưới khách sạn, resort và homestay cao cấp trên khắp Việt Nam.
+            Tập đoàn Khách sạn & Nghỉ dưỡng VietPeace Stay sở hữu và trực tiếp vận hành mạng lưới khách sạn, resort và homestay cao cấp trên khắp Việt Nam.
           </p>
         </div>
 
@@ -35,7 +35,7 @@ export default function AboutPage() {
             Mô Hình Sở Hữu & Vận Hành Trực Tiếp 100%
           </h2>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-slate)', lineHeight: 1.6 }}>
-            Khác biệt hoàn toàn với các trang web trung gian hay nền tảng đại lý ủy quyền, VinaStay Group là đơn vị <strong>chủ quản đầu tư, thiết kế và trực tiếp quản lý</strong> toàn bộ các cơ sở mang thương hiệu VinaStay.
+            Khác biệt hoàn toàn với các trang web trung gian hay nền tảng đại lý ủy quyền, VietPeace Stay Group là đơn vị <strong>chủ quản đầu tư, thiết kế và trực tiếp quản lý</strong> toàn bộ các cơ sở mang thương hiệu VietPeace Stay.
           </p>
           <p style={{ fontSize: '0.875rem', color: 'var(--color-slate)', lineHeight: 1.6 }}>
             Chúng tôi loại bỏ các tầng trung gian để mang lại cho quý khách:
@@ -67,7 +67,7 @@ export default function AboutPage() {
             className="btn-primary"
             style={{ padding: '12px 24px', borderRadius: 'var(--radius-lg)' }}
           >
-            Khám phá các điểm đến của VinaStay
+            Khám phá các điểm đến của VietPeace Stay
           </Link>
         </div>
 
