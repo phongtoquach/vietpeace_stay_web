@@ -330,12 +330,17 @@ export default function AccommodationOverview({ hotel, accommodation }) {
                   if (typeof place === 'object' && place !== null) {
                       const name =
                           place.name || place.title || place.attraction_name || place.place_name || '';
-                      const distance =
-                          place.distance_meters != null
-                              ? Number(place.distance_meters) < 1000
-                                  ? `${Number(place.distance_meters)} m`
-                                  : `${Number(place.distance_meters).toLocaleString('vi-VN', { maximumFractionDigits: 2, minimumFractionDigits: 0 })} m`
-                              : place.distance || place.dist || '';
+                      
+                      const distanceMeters = place.distance_meters != null ? Number(place.distance_meters) : null;
+
+                      const distance = distanceMeters == null
+                        ? place.distance || place.dist || ''
+                        : distanceMeters < 1000
+                            ? `${distanceMeters} m`
+                            : `${(distanceMeters / 1000).toLocaleString('vi-VN', {
+                                maximumFractionDigits: 2,
+                            })} km`;
+
                       const imageUrl = extractAttractionImageUrl(place);
                       const shortDesc = extractAttractionDescription(place);
                       const note = extractAttractionNote(place);

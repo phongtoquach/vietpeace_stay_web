@@ -941,6 +941,21 @@ export default function AccommodationDetailPage() {
                     className="container-7xl"
                     style={{ paddingTop: '1.5rem', paddingBottom: '3rem' }}
                 >
+                    <style>{`
+                        @media (min-width: 1024px) {
+                            .detail-layout-grid > .detail-booking-sidebar-col--sticky {
+                                position: sticky;
+                                top: var(--booking-summary-sticky-top, 96px);
+                                align-self: start;
+                            }
+
+                            .detail-booking-sidebar-col--sticky > .booking-summary-panel {
+                                box-sizing: border-box;
+                                max-height: calc(100dvh - var(--booking-summary-sticky-top, 96px) - 16px);
+                                overflow-y: auto;
+                            }
+                        }
+                    `}</style>
                     <div className="detail-layout-grid">
                         {/* Left Area: Available Room Types List */}
                         <section className="detail-rooms-col">
@@ -1084,7 +1099,7 @@ export default function AccommodationDetailPage() {
                         </section>
 
                         {/* Right Area: Sticky Booking Summary Panel */}
-                        <aside className="detail-booking-sidebar-col">
+                        <aside className="detail-booking-sidebar-col detail-booking-sidebar-col--sticky">
                             <div
                                 className="booking-summary-panel"
                                 aria-busy={busy}
