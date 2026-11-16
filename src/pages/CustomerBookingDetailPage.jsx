@@ -213,7 +213,7 @@ export default function CustomerBookingDetailPage() {
     const adjustments = [
         // { label: 'Giảm giá phòng', amount: booking.roomDiscountTotal, sign: '−' },
         // { label: 'Ưu đãi đặt phòng', amount: booking.discountAmount, sign: '−' },
-        { label: 'Thuế', amount: booking.taxAmount, sign: '+' },
+        { label: 'Thuế (' + booking.taxRatePercent + '%)', amount: booking.taxAmount, sign: '+' },
         //{ label: 'Phí dịch vụ', amount: booking.serviceFee, sign: '+' },
     ];
 
