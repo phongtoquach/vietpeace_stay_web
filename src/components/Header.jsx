@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useContext } from 'react';
+import { Link } from 'react-router-dom';
 
 import AuthContext from "../context/AuthContext";
 
@@ -9,7 +9,7 @@ import { User, LogOut, Calendar, Menu, X, ChevronDown } from 'lucide-react';
 export default function Header() {
     console.log("[Header] Vừa vào hàm component Header !");
 
-    const { currentPathName, currentLoggedInUser, isCheckingAuthen, logout } = useContext(AuthContext);
+    const { currentPathName, currentLoggedInUser, logout } = useContext(AuthContext);
     const activePath = currentPathName || window.location.pathname;
     const customerName = currentLoggedInUser
         ? (currentLoggedInUser.fullName || currentLoggedInUser.fullname || currentLoggedInUser.displayName || '')

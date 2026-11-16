@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     useSearchParams,
     useNavigate,
@@ -164,7 +164,10 @@ export default function AccommodationDetailPage() {
     const mountedRef = useRef(true);
     const loginRequestedRef = useRef(false);
     const previousUserRef = useRef(currentLoggedInUser);
-    activeStayRef.current = stayKey;
+
+    useEffect(() => {
+        activeStayRef.current = stayKey;
+    }, [stayKey]);
 
     const detailReady =
         !detailLoading && String(hotel?.id) === hotelIdParam && !detailError;
@@ -232,7 +235,7 @@ export default function AccommodationDetailPage() {
                 return undefined;
             }
             return makeDraft(rooms);
-        } catch (error) {
+        } catch {
             clearSavedDraft();
             return undefined;
         }

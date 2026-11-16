@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/useAuth.js';
 import { MapPin, Phone, Mail, Send } from 'lucide-react';
 

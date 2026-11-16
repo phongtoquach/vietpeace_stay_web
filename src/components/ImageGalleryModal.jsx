@@ -1,8 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react';
 
 export default function ImageGalleryModal({ isOpen, onClose, images = [], title = 'Hình ảnh chỗ nghỉ', initialIndex = 0 }) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+  const validImages = images && images.length > 0 ? images : ['/assets/images/hero.jpg'];
+  const total = validImages.length;
+
+  const nextImage = () => {
+    setCurrentIndex((prev) => (prev + 1) % total);
+  };
+
+  const prevImage = () => {
+    setCurrentIndex((prev) => (prev - 1 + total) % total);
+  };
 
   // Sync initialIndex when modal opens or initialIndex changes
   useEffect(() => {
@@ -41,17 +52,6 @@ export default function ImageGalleryModal({ isOpen, onClose, images = [], title 
   }, [isOpen, images.length]);
 
   if (!isOpen) return null;
-
-  const validImages = images && images.length > 0 ? images : ['/assets/images/hero.jpg'];
-  const total = validImages.length;
-
-  const nextImage = () => {
-    setCurrentIndex((prev) => (prev + 1) % total);
-  };
-
-  const prevImage = () => {
-    setCurrentIndex((prev) => (prev - 1 + total) % total);
-  };
 
   return (
     <div

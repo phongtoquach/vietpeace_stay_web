@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useLocation, Link } from 'react-router-dom';
 
 //import HotelSearchForm from '../components/HotelSearchForm.jsx';
@@ -211,6 +211,14 @@ export default function AccommodationSearchPage() {
         pageSize: PAGE_SIZE,
         total: 0,
         totalPages: 0,
+    });
+
+    // Image Gallery Modal State (declared before search effect resets it on query change)
+    const [galleryModal, setGalleryModal] = useState({
+        isOpen: false,
+        title: '',
+        images: [],
+        initialIndex: 0,
     });
 
     // useEffect này chạy khi pathname/query thay đổi, kể cả lần mở trang đầu tiên.
@@ -497,14 +505,6 @@ export default function AccommodationSearchPage() {
         if (isLoading) return;
         updateFilterParam('sort', newSort);
     };
-
-    // Image Gallery Modal State
-    const [galleryModal, setGalleryModal] = useState({
-        isOpen: false,
-        title: '',
-        images: [],
-        initialIndex: 0,
-    });
 
     const handleOpenGallery = (title, images, initialIndex = 0) => {
         setGalleryModal({

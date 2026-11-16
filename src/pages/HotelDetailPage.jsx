@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import HotelStaySearchForm from '../components/HotelStaySearchForm.jsx';
 import RoomTypeCard from '../components/RoomTypeCard.jsx';
@@ -111,7 +111,7 @@ export default function HotelDetailPage() {
       setSelectedItems([]);
       try {
         sessionStorage.removeItem(STORAGE_STAY_SELECTION_KEY);
-      } catch (e) {
+      } catch {
         // ignore
       }
       prevStayRef.current = {
@@ -135,7 +135,7 @@ export default function HotelDetailPage() {
             setSelectedItems(parsed.rooms);
           }
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -156,7 +156,7 @@ export default function HotelDetailPage() {
       } else {
         sessionStorage.removeItem(STORAGE_STAY_SELECTION_KEY);
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, [selectedItems, isStaySearchValid, hotel.id, appliedCheckin, appliedCheckout]);
@@ -197,7 +197,7 @@ export default function HotelDetailPage() {
       setSelectedItems([]);
       try {
         sessionStorage.removeItem(STORAGE_STAY_SELECTION_KEY);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }

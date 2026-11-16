@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import HeroSlider from '../components/HeroSlider.jsx';
 
@@ -9,7 +9,7 @@ import PopularDestinationsGrid from '../components/PopularDestinationsGrid';
 
 import AccommodationCard from '../components/AccommodationCard';
 import ImageGalleryModal from '../components/ImageGalleryModal.jsx';
-import { ShieldCheck, Tag, Clock, Award, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Tag, Clock, ArrowRight } from 'lucide-react';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api/web').replace(/\/$/, '');
 

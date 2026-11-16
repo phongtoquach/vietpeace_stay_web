@@ -1,4 +1,3 @@
-import React from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext.jsx';
 import { formatVND, formatDateVN } from '../utils/bookingUtils.js';

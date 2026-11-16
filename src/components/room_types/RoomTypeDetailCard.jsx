@@ -1,4 +1,3 @@
-import React from 'react';
 import {
     Eye,
     Bed,
@@ -65,8 +64,6 @@ const getRoomAmenityIcon = (amenityText) => {
 export default function RoomTypeDetailCard({
     room,
     disabled = false,
-    checkin,
-    checkout,
     nights,
     selectedRooms = [],
     onChangeQuantity,

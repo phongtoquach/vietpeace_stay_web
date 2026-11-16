@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-[#FFF9ED] py-12 pb-24">

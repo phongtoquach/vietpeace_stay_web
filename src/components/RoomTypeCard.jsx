@@ -1,4 +1,3 @@
-import React from 'react';
 import { Eye, Bed, Maximize2, Users, Check, Sparkles, X, Coffee, Waves, Bath, Utensils, Wifi } from 'lucide-react';
 import { formatVND, getStayNights, isSpecialHoliday, isWeekendNight } from '../utils/bookingUtils.js';
 import PriceBreakdownTooltip from './PriceBreakdownTooltip.jsx';

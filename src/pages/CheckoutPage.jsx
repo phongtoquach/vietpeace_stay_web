@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { formatVND, formatDateVN } from '../utils/bookingUtils.js';
-import { ShieldCheck, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import RoomTypePriceBreakdownTooltip from '../components/room_types/RoomTypePriceBreakdownTooltip.jsx';
 
 // 24 one-hour windows covering the full day with standard ASCII hyphen and exact spacing
@@ -357,8 +357,6 @@ function CheckoutContent({ checkout, onReload }) {
   const roomsSubtotal = booking.roomSubtotal ?? (booking.items || []).reduce((sum, it) => sum + (it.roomStayPrice || 0), 0);
   const extraGuestTotal = booking.extraGuestsSubtotal ?? (booking.items || []).reduce((sum, it) => sum + (it.extraFeeTotal || 0), 0);
   const taxAmount = (booking.taxAmount !== null && booking.taxAmount !== undefined) ? booking.taxAmount : 0;
-  const hasServiceFee = booking.serviceFee !== null && booking.serviceFee !== undefined;
-  const serviceFee = booking.serviceFee;
   const totalAmount = booking.totalAmount;
 
   return (

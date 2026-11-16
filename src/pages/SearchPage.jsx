@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import HotelSearchForm from '../components/HotelSearchForm.jsx';
 import HotelCard from '../components/HotelCard.jsx';

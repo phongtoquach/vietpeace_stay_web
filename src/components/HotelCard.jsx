@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Star, Eye, Coffee, Wifi, Car, Waves } from 'lucide-react';
 import { formatVND } from '../utils/bookingUtils.js';

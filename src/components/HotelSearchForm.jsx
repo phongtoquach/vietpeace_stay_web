@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, MapPin, Building, Calendar, Users, Plus, Minus } from 'lucide-react';
 import DatePicker from 'react-datepicker';

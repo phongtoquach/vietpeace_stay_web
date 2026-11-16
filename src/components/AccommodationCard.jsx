@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Star, Eye, Coffee, Wifi, Car, Waves, Check, Utensils } from 'lucide-react';
 import { formatVND } from '../utils/bookingUtils.js';
@@ -68,7 +68,7 @@ function AmenityPill({ amenity }) {
     );
 }
 
-export default function AccommodationCard({ accommodation, hotel, onOpenGallery, searchCriteria = {}, showAvailabilityPrompt = true }) {
+export default function AccommodationCard({ accommodation, onOpenGallery, searchCriteria = {}, showAvailabilityPrompt = true }) {
     console.log("[AccommodationCard] Vừa vào hàm component AccommodationCard ! Data của accommodation : ");
     console.log(accommodation);
 

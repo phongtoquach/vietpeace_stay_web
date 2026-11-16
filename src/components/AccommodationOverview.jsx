@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Wifi,
     Waves,
@@ -21,7 +21,6 @@ import {
     Coffee,
     MapPin,
     Calendar,
-    CheckCircle2,
     ShieldCheck,
     FileText,
     Info,
@@ -122,8 +121,6 @@ const getAmenityIcon = (iconKey) => {
             return Sparkles;
     }
 };
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002').replace(/\/$/, '');
 
 const BACKEND_APP_BASE_URL = import.meta.env.VITE_BACKEND_APP_BASE_URL;
 
@@ -246,10 +243,9 @@ const extractAttractionNote = (place) => {
 /**
  * AccommodationOverview component for VietPeace Stay hotel-detail page
  */
-export default function AccommodationOverview({ hotel, accommodation, ...rest }) {
+export default function AccommodationOverview({ hotel, accommodation }) {
     // Support both accommodation or hotel props
     const acc = accommodation || hotel;
-    if (!acc) return null;
 
     // State for image viewer modal of attractions
     const [selectedAttractionImage, setSelectedAttractionImage] = useState(null);
@@ -267,6 +263,8 @@ export default function AccommodationOverview({ hotel, accommodation, ...rest })
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedAttractionImage]);
+
+    if (!acc) return null;
 
     // Star rating null-safety
     const rawStarRating = acc.star_rating ?? acc.starRating;

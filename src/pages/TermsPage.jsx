@@ -1,4 +1,3 @@
-import React from 'react';
 import { FileText, ChevronRight } from 'lucide-react';
 
 export default function TermsPage() {
