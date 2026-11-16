@@ -222,6 +222,9 @@ export default function ChatWidget() {
     activeConversation,
     activeConversationId,
     activeMessages,
+    loadOlderMessages,
+    hasOlderMessages,
+    loadingOlderMessages,
     activeStreaming,
     activeTypingName,
     totalUnread,
@@ -252,6 +255,8 @@ export default function ChatWidget() {
   const launcherRef = useRef(null);
   const inputRef = useRef(null);
   const scrollEndRef = useRef(null);
+  const streamRef = useRef(null);
+  const preservingScrollRef = useRef(false);
   const rateTriggerRef = useRef(null);
   const ratingPopoverRef = useRef(null);
   const typingTimerRef = useRef(null);
@@ -311,7 +316,7 @@ export default function ChatWidget() {
 
   // Auto scroll when new messages / deltas / guide appear
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || preservingScrollRef.current) return;
     scrollEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [isOpen, activeMessages.length, activeStreaming?.text, handoffGuideState.open]);
 
@@ -680,7 +685,23 @@ export default function ChatWidget() {
           )}
 
           {/* Scrollable Message Stream */}
-          <div className="vps-chat-stream">
+          <div className="vps-chat-stream" ref={streamRef}>
+            {hasOlderMessages && (
+              <button type="button" className="vps-btn-outline-xs" disabled={loadingOlderMessages}
+                onClick={async () => {
+                  const el = streamRef.current;
+                  const height = el?.scrollHeight || 0;
+                  const top = el?.scrollTop || 0;
+                  preservingScrollRef.current = true;
+                  await loadOlderMessages();
+                  requestAnimationFrame(() => {
+                    if (el) el.scrollTop = top + el.scrollHeight - height;
+                    preservingScrollRef.current = false;
+                  });
+                }}>
+                {loadingOlderMessages ? "Đang tải…" : "Tải tin nhắn cũ"}
+              </button>
+            )}
             {activeMessages.length === 0 && !loading && (
               <div className="vps-msg-row bot">
                 <div className="vps-msg-col">
@@ -856,6 +877,7 @@ export default function ChatWidget() {
                     : "Hỏi phòng, báo giá hoặc dịch vụ…"
                 }
                 value={draft}
+                disabled={loading}
                 onChange={handleTextareaChange}
                 onKeyDown={handleComposerKeyDown}
                 aria-label="Nội dung tin nhắn"
@@ -863,7 +885,7 @@ export default function ChatWidget() {
               <button
                 type="submit"
                 className="vps-send-btn"
-                disabled={!draft.trim()}
+                disabled={loading || !draft.trim()}
                 aria-label="Gửi tin nhắn"
               >
                 <Send size={16} />

@@ -28,6 +28,18 @@ export default function LoginPage() {
 
   return (
     <main className="auth-page-shell">
+      <div className="auth-page-backdrop" aria-hidden="true">
+        <img
+          src="/assets/images/hero.jpg"
+          alt=""
+          className="auth-page-backdrop-img"
+          decoding="async"
+          fetchPriority="high"
+        />
+        <div className="auth-page-scrim" />
+        <div className="auth-page-ambient-glow" />
+      </div>
+
       <div className="auth-card auth-card-wide auth-card-login">
         <div className="auth-card-head">
           <h1 className="auth-card-title">Đăng Nhập Khách Hàng</h1>

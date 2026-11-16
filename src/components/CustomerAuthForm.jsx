@@ -14,51 +14,28 @@ import {
 } from 'lucide-react';
 import SlidePuzzleCaptcha from './SlidePuzzleCaptcha.jsx';
 import {
+  clearRememberedCustomerAuth,
   loginCustomerAccount,
+  preventSilentCustomerCredentialAccess,
+  readRememberedCustomerAuth,
   requestCustomerNewPassword,
   resendCustomerVerification,
+  saveRememberedCustomerAuth,
 } from '../utils/authApi.js';
 import '../assets/styles/auth.css';
 
 const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-const REMEMBERED_AUTH_STORAGE_KEY = 'vietpeace_customer_remember_auth';
 
-function readRememberedAuth() {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(REMEMBERED_AUTH_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return null;
-    const savedEmail = typeof parsed.email === 'string' ? parsed.email.trim() : '';
-    if (!savedEmail || !parsed.rememberMe) return null;
-    return { email: savedEmail, rememberMe: true };
-  } catch {
-    return null;
+function isInputAutofilled(inputEl) {
+  if (!inputEl || typeof inputEl.matches !== 'function') return false;
+  for (const selector of [':autofill', ':-webkit-autofill']) {
+    try {
+      if (inputEl.matches(selector)) return true;
+    } catch {
+      // Bỏ qua selector trình duyệt không hỗ trợ
+    }
   }
-}
-
-function saveRememberedAuth(email) {
-  if (typeof window === 'undefined') return;
-  try {
-    const trimmedEmail = typeof email === 'string' ? email.trim() : '';
-    if (!trimmedEmail) return;
-    window.localStorage.setItem(
-      REMEMBERED_AUTH_STORAGE_KEY,
-      JSON.stringify({ email: trimmedEmail, rememberMe: true }),
-    );
-  } catch {
-    // Bỏ qua nếu localStorage bị hạn chế
-  }
-}
-
-function clearRememberedAuth() {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(REMEMBERED_AUTH_STORAGE_KEY);
-  } catch {
-    // Bỏ qua nếu localStorage bị hạn chế
-  }
+  return false;
 }
 
 export default function CustomerAuthForm({
@@ -78,9 +55,10 @@ export default function CustomerAuthForm({
   const forgotHeadingId = useId();
 
   const [view, setView] = useState('login'); // 'login' | 'forgot'
-  const [rememberMe, setRememberMe] = useState(() => Boolean(readRememberedAuth()?.rememberMe));
-  const [email, setEmail] = useState(() => initialEmail || readRememberedAuth()?.email || '');
+  const [rememberMe, setRememberMe] = useState(() => Boolean(readRememberedCustomerAuth()?.rememberMe));
+  const [email, setEmail] = useState(() => initialEmail || readRememberedCustomerAuth()?.email || '');
   const [password, setPassword] = useState('');
+  const [hasInteractedWithCredentials, setHasInteractedWithCredentials] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [showVerificationCode, setShowVerificationCode] = useState(Boolean(initialRequireCode));
   const [showPassword, setShowPassword] = useState(false);
@@ -106,13 +84,14 @@ export default function CustomerAuthForm({
 
   // Quên mật khẩu
   const [forgotEmail, setForgotEmail] = useState(
-    () => initialEmail || readRememberedAuth()?.email || '',
+    () => initialEmail || readRememberedCustomerAuth()?.email || '',
   );
   const [forgotEmailError, setForgotEmailError] = useState('');
   const [forgotBanner, setForgotBanner] = useState(null);
   const [forgotCooldown, setForgotCooldown] = useState(0);
   const [isSendingForgot, setIsSendingForgot] = useState(false);
 
+  const formRef = useRef(null);
   const internalEmailRef = useRef(null);
   const passwordRef = useRef(null);
   const codeRef = useRef(null);
@@ -120,6 +99,7 @@ export default function CustomerAuthForm({
   const forgotEmailRef = useRef(null);
   const forgotHeadingRef = useRef(null);
   const hasUserEditedCredentialsRef = useRef(false);
+  const hasManualInteractionRef = useRef(false);
 
   const setEmailInputRef = (node) => {
     internalEmailRef.current = node;
@@ -145,7 +125,7 @@ export default function CustomerAuthForm({
   }, [forgotCooldown]);
 
   useEffect(() => {
-    const saved = readRememberedAuth();
+    const saved = readRememberedCustomerAuth();
     if (!saved?.rememberMe || initialEmail) return undefined;
     if (typeof window === 'undefined' || !navigator?.credentials?.get) return undefined;
 
@@ -175,13 +155,53 @@ export default function CustomerAuthForm({
     };
   }, [initialEmail]);
 
+  const markManualCredentialInteraction = () => {
+    hasManualInteractionRef.current = true;
+    if (!hasInteractedWithCredentials) {
+      setHasInteractedWithCredentials(true);
+    }
+  };
+
+  const clearAutofilledInputs = () => {
+    const nextEmail = initialEmail || '';
+    setEmail(nextEmail);
+    setPassword('');
+    setDirty((prev) => ({ ...prev, email: false, password: false }));
+    setFieldErrors((prev) => ({ ...prev, email: '', password: '' }));
+
+    if (formRef.current && typeof formRef.current.reset === 'function') {
+      formRef.current.reset();
+    }
+    if (internalEmailRef.current) {
+      internalEmailRef.current.value = ' ';
+      internalEmailRef.current.value = nextEmail;
+    }
+    if (passwordRef.current) {
+      passwordRef.current.value = ' ';
+      passwordRef.current.value = '';
+    }
+  };
+
+  const handleBlockedAutofillAnimation = (event) => {
+    if (
+      rememberMe ||
+      hasManualInteractionRef.current ||
+      hasUserEditedCredentialsRef.current ||
+      event.animationName !== 'customerAuthAutofillBlock'
+    ) {
+      return;
+    }
+    clearAutofilledInputs();
+  };
+
   const handleRememberMeChange = (e) => {
     const checked = e.target.checked;
     setRememberMe(checked);
     if (!checked) {
-      clearRememberedAuth();
-      if (typeof navigator !== 'undefined' && navigator?.credentials?.preventSilentAccess) {
-        navigator.credentials.preventSilentAccess().catch(() => {});
+      clearRememberedCustomerAuth();
+      preventSilentCustomerCredentialAccess();
+      if (isInputAutofilled(internalEmailRef.current) || isInputAutofilled(passwordRef.current)) {
+        clearAutofilledInputs();
       }
     }
   };
@@ -315,7 +335,7 @@ export default function CustomerAuthForm({
       }
 
       if (rememberMe) {
-        saveRememberedAuth(trimmedEmail);
+        saveRememberedCustomerAuth(trimmedEmail);
         if (
           typeof window !== 'undefined' &&
           typeof window.PasswordCredential === 'function' &&
@@ -333,7 +353,15 @@ export default function CustomerAuthForm({
           }
         }
       } else {
-        clearRememberedAuth();
+        clearRememberedCustomerAuth();
+        await preventSilentCustomerCredentialAccess();
+        setPassword('');
+        if (passwordRef.current) {
+          passwordRef.current.value = '';
+        }
+        if (internalEmailRef.current && !initialEmail) {
+          internalEmailRef.current.value = '';
+        }
       }
 
       onLoginSuccess?.(customer, data?.data);
@@ -600,7 +628,14 @@ export default function CustomerAuthForm({
         </div>
       )}
 
-      <form className="auth-form" method="POST" onSubmit={handleLoginSubmit} noValidate>
+      <form
+        ref={formRef}
+        className="auth-form"
+        method="POST"
+        autoComplete={rememberMe ? 'on' : 'off'}
+        onSubmit={handleLoginSubmit}
+        noValidate
+      >
         <div className="auth-field">
           <label className="auth-label" htmlFor={emailId}>
             Email (Tên đăng nhập) <span className="auth-label-required" aria-hidden="true">*</span>
@@ -613,8 +648,21 @@ export default function CustomerAuthForm({
               name="email"
               type="email"
               value={email}
+              onPointerDown={markManualCredentialInteraction}
+              onKeyDown={(e) => {
+                if (e.key !== 'Tab' && e.key !== 'Shift') {
+                  markManualCredentialInteraction();
+                }
+              }}
+              onPaste={markManualCredentialInteraction}
+              onAnimationStart={handleBlockedAutofillAnimation}
               onChange={(e) => {
-                hasUserEditedCredentialsRef.current = true;
+                const isRealUserInput =
+                  !isInputAutofilled(e.target) && Boolean(e.nativeEvent?.inputType);
+                if (isRealUserInput) {
+                  hasUserEditedCredentialsRef.current = true;
+                  markManualCredentialInteraction();
+                }
                 setEmail(e.target.value);
                 setDirty((prev) => ({ ...prev, email: true }));
                 if (fieldErrors.email) {
@@ -622,7 +670,7 @@ export default function CustomerAuthForm({
                 }
               }}
               onBlur={() => handleFieldBlur('email')}
-              autoComplete="username"
+              autoComplete={rememberMe ? 'username' : 'off'}
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
@@ -631,6 +679,8 @@ export default function CustomerAuthForm({
               required
               disabled={isSubmitting}
               className={`auth-input-control auth-input-control--with-icon ${
+                !rememberMe && !hasInteractedWithCredentials ? 'auth-input-control--suppress-autofill' : ''
+              } ${
                 fieldErrors.email ? 'auth-input-control--invalid' : ''
               }`}
               aria-invalid={fieldErrors.email ? 'true' : 'false'}
@@ -657,8 +707,21 @@ export default function CustomerAuthForm({
               name="password"
               type={showPassword ? 'text' : 'password'}
               value={password}
+              onPointerDown={markManualCredentialInteraction}
+              onKeyDown={(e) => {
+                if (e.key !== 'Tab' && e.key !== 'Shift') {
+                  markManualCredentialInteraction();
+                }
+              }}
+              onPaste={markManualCredentialInteraction}
+              onAnimationStart={handleBlockedAutofillAnimation}
               onChange={(e) => {
-                hasUserEditedCredentialsRef.current = true;
+                const isRealUserInput =
+                  !isInputAutofilled(e.target) && Boolean(e.nativeEvent?.inputType);
+                if (isRealUserInput) {
+                  hasUserEditedCredentialsRef.current = true;
+                  markManualCredentialInteraction();
+                }
                 setPassword(e.target.value);
                 setDirty((prev) => ({ ...prev, password: true }));
                 if (fieldErrors.password) {
@@ -666,12 +729,14 @@ export default function CustomerAuthForm({
                 }
               }}
               onBlur={() => handleFieldBlur('password')}
-              autoComplete="current-password"
+              autoComplete={rememberMe ? 'current-password' : 'one-time-code'}
               enterKeyHint={showVerificationCode ? 'next' : 'done'}
               placeholder="Nhập mật khẩu"
               required
               disabled={isSubmitting}
               className={`auth-input-control auth-input-control--with-icon auth-input-control--password ${
+                !rememberMe && !hasInteractedWithCredentials ? 'auth-input-control--suppress-autofill' : ''
+              } ${
                 fieldErrors.password ? 'auth-input-control--invalid' : ''
               }`}
               aria-invalid={fieldErrors.password ? 'true' : 'false'}

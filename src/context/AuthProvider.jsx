@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AuthContext from './AuthContext.jsx';
+import {
+    preventSilentCustomerCredentialAccess,
+    readRememberedCustomerAuth,
+} from '../utils/authApi.js';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3002/api/web').replace(/\/+$/, '');
 
@@ -75,6 +79,9 @@ export default function AuthProvider({ children }) {
         try {
             const response = await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
             if (!response.ok && response.status !== 401) throw new Error(`Logout failed: ${response.status}`);
+            if (!readRememberedCustomerAuth()?.rememberMe) {
+                await preventSilentCustomerCredentialAccess();
+            }
             setCurrentLoggedInUser(null);
             navigate('/', { replace: true });
             return response.ok;

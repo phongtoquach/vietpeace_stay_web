@@ -151,6 +151,8 @@ export function ChatProvider({ children }) {
   const [statusNotice, setStatusNotice] = useState("");
   const [handoffGuideState, setHandoffGuideState] = useState({ open: false });
   const [socketConnected, setSocketConnected] = useState(false);
+  const [historyByConv, setHistoryByConv] = useState({});
+  const loadingHistoryRef = useRef(new Set());
 
   const isOpenRef = useRef(isOpen);
   const activeIdRef = useRef(activeConversationId);
@@ -163,12 +165,37 @@ export function ChatProvider({ children }) {
   const receivedMessageKeysRef = useRef(new Set());
   const conversationRevisionRef = useRef(0);
   const expiredConversationIdsRef = useRef(new Set());
+  const manualContextPageKeyRef = useRef(null);
+  const pendingPageSyncRef = useRef(null);
+  const contextMutationVersionRef = useRef(0);
+  const contextQueueRef = useRef(Promise.resolve());
+
+  const runContextMutation = useCallback((work) => {
+    const epoch = sessionEpochRef.current;
+    const version = ++contextMutationVersionRef.current;
+    const isCurrent = () => epoch === sessionEpochRef.current && version === contextMutationVersionRef.current;
+    const scheduled = contextQueueRef.current.catch(() => {}).then(async () => {
+      if (!isCurrent()) return null;
+      try {
+        const result = await work();
+        return isCurrent() ? result : null;
+      } catch (err) {
+        if (isCurrent()) throw err;
+        return null;
+      }
+    });
+    contextQueueRef.current = scheduled.catch(() => {});
+    return scheduled;
+  }, []);
 
   useEffect(() => {
     isOpenRef.current = isOpen;
     activeIdRef.current = activeConversationId;
     actorRef.current = actor;
     pageContextRef.current = pageContext;
+    if (manualContextPageKeyRef.current && manualContextPageKeyRef.current !== pageContext.contextKey) {
+      manualContextPageKeyRef.current = null;
+    }
   }, [isOpen, activeConversationId, actor, pageContext]);
 
   const upsertConversation = useCallback((conv) => {
@@ -247,6 +274,9 @@ export function ChatProvider({ children }) {
       if (epoch !== sessionEpochRef.current || expiredConversationIdsRef.current.has(Number(cid))) return [];
       const items = res.items || [];
       setMessagesByConv((prev) => ({ ...prev, [Number(cid)]: mergeChatMessages(prev[Number(cid)], items) }));
+      setHistoryByConv((prev) => prev[Number(cid)] ? prev : {
+        ...prev, [Number(cid)]: { hasMore: items.length >= 60, loading: false },
+      });
       const maxSeq = lastServerSequence(items);
       if (maxSeq > 0) {
         syncDelivered(cid, maxSeq);
@@ -256,6 +286,35 @@ export function ChatProvider({ children }) {
     },
     [syncDelivered, syncReadIfVisible],
   );
+
+  const loadOlderMessages = useCallback(async () => {
+    const cid = Number(activeIdRef.current);
+    if (!cid || loadingHistoryRef.current.has(cid)) return;
+    const sequences = (messagesByConv[cid] || [])
+      .filter((m) => !m.localStatus && Number.isSafeInteger(Number(m.sequence)) && Number(m.sequence) > 0)
+      .map((m) => Number(m.sequence));
+    if (!sequences.length) return;
+    const beforeSequence = Math.min(...sequences);
+    const epoch = sessionEpochRef.current;
+    loadingHistoryRef.current.add(cid);
+    setHistoryByConv((prev) => ({ ...prev, [cid]: { ...prev[cid], loading: true } }));
+    try {
+      const res = await webChatClient.getMessages(cid, { limit: 60, beforeSequence });
+      if (epoch !== sessionEpochRef.current || expiredConversationIdsRef.current.has(cid)) return;
+      const items = res.items || [];
+      setMessagesByConv((prev) => ({ ...prev, [cid]: mergeChatMessages(prev[cid], items) }));
+      setHistoryByConv((prev) => ({ ...prev, [cid]: {
+        loading: false, hasMore: items.length >= 60 && items.some((m) => Number(m.sequence) < beforeSequence),
+      } }));
+    } catch (err) {
+      if (epoch === sessionEpochRef.current) setStatusNotice(err.message || "Không thể tải tin nhắn cũ.");
+    } finally {
+      if (epoch === sessionEpochRef.current) {
+        loadingHistoryRef.current.delete(cid);
+        setHistoryByConv((prev) => prev[cid] ? { ...prev, [cid]: { ...prev[cid], loading: false } } : prev);
+      }
+    }
+  }, [messagesByConv]);
 
   const attachSocketListeners = useCallback(
     (socket) => {
@@ -592,6 +651,9 @@ export function ChatProvider({ children }) {
       await Promise.resolve();
       if (!active) return;
       if (changed) {
+        manualContextPageKeyRef.current = null;
+        pendingPageSyncRef.current = null;
+        contextMutationVersionRef.current += 1;
         webChatClient.disconnectSocket();
         setSocketConnected(false);
         lastReadSentRef.current = {};
@@ -601,6 +663,8 @@ export function ChatProvider({ children }) {
         // Reset on every account change, including Customer A -> Customer B.
         setConversations([]);
         setMessagesByConv({});
+        setHistoryByConv({});
+        loadingHistoryRef.current.clear();
         setStreamingByConv({});
         setTypingByConv({});
         setActor(null);
@@ -660,25 +724,41 @@ export function ChatProvider({ children }) {
       setLoading(true);
       const epoch = sessionEpochRef.current;
       try {
-        const ctxNow = pageContextRef.current;
+        const viewingContext = pageContextRef.current;
+        const ctxNow = !accommodationId && manualContextPageKeyRef.current === viewingContext.contextKey
+          ? currentUnified?.context?.pageContext || viewingContext
+          : viewingContext;
+        if (accommodationId) manualContextPageKeyRef.current = viewingContext.contextKey;
         const resolvedScope =
           scopeType ||
           (accommodationId || ctxNow.pageType === "ACCOMMODATION_DETAIL" ? "PROPERTY" : "PLATFORM");
         const resolvedAccomId =
           resolvedScope === "PROPERTY" ? accommodationId || ctxNow.accommodationId : null;
 
-        const openRes = await webChatClient.openOrReuseConversation({
-          scopeType: resolvedScope,
-          accommodationId: resolvedAccomId,
-          bookingId: ctxNow.bookingId || undefined,
-          clientRequestId: makeClientId(),
-          pageContext: {
-            ...ctxNow,
-            accommodationId: resolvedAccomId || ctxNow.accommodationId,
-            attachContextCard: forceContextCard ? true : ctxNow.pageType !== "HOME",
-          },
+        const openRes = await runContextMutation(async () => {
+          const opened = await webChatClient.openOrReuseConversation({
+            scopeType: resolvedScope,
+            accommodationId: resolvedAccomId,
+            bookingId: accommodationId ? undefined : ctxNow.bookingId || undefined,
+            clientRequestId: makeClientId(),
+            pageContext: {
+              ...ctxNow,
+              ...(accommodationId ? { pageType: "ACCOMMODATION_DETAIL", bookingId: null, bookingCode: null } : {}),
+              accommodationId: resolvedAccomId || ctxNow.accommodationId,
+              attachContextCard: forceContextCard ? true : ctxNow.pageType !== "HOME",
+            },
+          });
+          if (autoRequestHandoff && epoch === sessionEpochRef.current && opened.conversation?.handlingMode === "AI") {
+            const handoff = await webChatClient.requestHandoff(opened.conversation.id, {
+              accommodationId: Number(opened.conversation.accommodationId),
+              reason: "Khách yêu cầu gặp Quản lý trực tiếp từ thẻ cơ sở",
+            });
+            return { ...opened, conversation: handoff?.conversation || opened.conversation,
+              handoffNotice: handoff?.supported === false ? handoff.message : null };
+          }
+          return opened;
         });
-        if (epoch !== sessionEpochRef.current) return null;
+        if (!openRes || epoch !== sessionEpochRef.current) return null;
 
         setActor((prev) => prev || { type: stableCustomerId ? "CUSTOMER" : "GUEST" });
         upsertConversation(openRes.conversation);
@@ -700,16 +780,8 @@ export function ChatProvider({ children }) {
           syncReadIfVisible(openRes.conversation.id, maxSeq);
         }
 
-        if (autoRequestHandoff && openRes.conversation?.handlingMode === "AI") {
-          const handoffRes = await webChatClient.requestHandoff(openRes.conversation.id, {
-            reason: "Khách yêu cầu gặp Quản lý trực tiếp từ trang chi tiết cơ sở",
-          });
-          if (epoch !== sessionEpochRef.current) return null;
-          if (handoffRes?.conversation) {
-            upsertConversation(handoffRes.conversation);
-          }
-          await loadConversationMessages(openRes.conversation.id);
-        }
+        if (openRes.handoffNotice) setStatusNotice(openRes.handoffNotice);
+        if (autoRequestHandoff) await loadConversationMessages(openRes.conversation.id);
 
         return openRes.conversation;
       } catch (err) {
@@ -727,6 +799,7 @@ export function ChatProvider({ children }) {
       ensureRealtimeConnected,
       syncReadIfVisible,
       loadConversationMessages,
+      runContextMutation,
     ],
   );
 
@@ -736,17 +809,24 @@ export function ChatProvider({ children }) {
     const conv = conversations.find((c) => Number(c.id) === Number(activeConversationId));
     if (!conv || conv.status !== "OPEN" || conv.handlingMode !== "AI") return;
     if (pageContext.contextKey === "HOME") return;
+    if (manualContextPageKeyRef.current === pageContext.contextKey) return;
     if (conv.context?.lastAttachedContextKey === pageContext.contextKey) return;
 
+    const syncKey = `${conv.id}:${pageContext.contextKey}`;
+    if (pendingPageSyncRef.current === syncKey) return;
+    pendingPageSyncRef.current = syncKey;
+    manualContextPageKeyRef.current = null;
     const epoch = sessionEpochRef.current;
-    webChatClient
-      .updateContext(conv.id, { ...pageContext, attachContextCard: true })
+    runContextMutation(() => webChatClient.updateContext(conv.id, { ...pageContext, attachContextCard: true }))
       .then((updated) => {
-        if (epoch !== sessionEpochRef.current) return;
+        if (!updated || epoch !== sessionEpochRef.current) return;
         upsertConversation(updated);
         return loadConversationMessages(conv.id);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (pendingPageSyncRef.current === syncKey) pendingPageSyncRef.current = null;
+      });
   }, [
     isOpen,
     activeConversationId,
@@ -755,6 +835,7 @@ export function ChatProvider({ children }) {
     conversations,
     upsertConversation,
     loadConversationMessages,
+    runContextMutation,
   ]);
 
   // Load messages + refresh conversation detail and join room when switching active conversation while widget is open
@@ -865,7 +946,8 @@ export function ChatProvider({ children }) {
         if (!cid) return;
       }
       const epoch = sessionEpochRef.current;
-      const updated = await webChatClient.updateContext(cid, {
+      manualContextPageKeyRef.current = pageContextRef.current.contextKey;
+      const updated = await runContextMutation(() => webChatClient.updateContext(cid, {
         pageType: "LOCATION_SEARCH",
         locationId: Number(locationObj.id),
         checkin: pageContextRef.current.checkin,
@@ -874,12 +956,12 @@ export function ChatProvider({ children }) {
         adults: pageContextRef.current.adults,
         children: pageContextRef.current.children,
         attachContextCard: true,
-      });
-      if (epoch !== sessionEpochRef.current) return;
+      }));
+      if (!updated || epoch !== sessionEpochRef.current) return;
       upsertConversation(updated);
       await loadConversationMessages(cid);
     },
-    [conversations, openChatWidget, upsertConversation, loadConversationMessages],
+    [conversations, openChatWidget, upsertConversation, loadConversationMessages, runContextMutation],
   );
 
   const selectPropertyInChat = useCallback(
@@ -913,6 +995,7 @@ export function ChatProvider({ children }) {
     const epoch = sessionEpochRef.current;
     try {
       const res = await webChatClient.requestHandoff(cid, {
+        accommodationId: Number(conv.accommodationId),
         reason: "Khách yêu cầu kết nối Quản lý cơ sở",
       });
       if (epoch !== sessionEpochRef.current) return;
@@ -1090,6 +1173,9 @@ export function ChatProvider({ children }) {
     activeConversationId,
     setActiveConversationId,
     activeMessages,
+    loadOlderMessages,
+    hasOlderMessages: Boolean(historyByConv[Number(activeConversationId)]?.hasMore),
+    loadingOlderMessages: Boolean(historyByConv[Number(activeConversationId)]?.loading),
     activeStreaming,
     activeTypingName,
     totalUnread,

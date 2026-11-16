@@ -460,7 +460,9 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
           <button
             type="button"
             className="vps-btn-primary-xs"
-            onClick={() => onRequestHandoff?.()}
+            onClick={() => payload.accommodationId
+              ? onSelectProperty?.(Number(payload.accommodationId), { autoHandoff: true })
+              : onRequestHandoff?.()}
           >
             <UserCheck size={12} />
             <span>{payload.hasActiveManager ? "Gặp Quản lý" : "Liên hệ trực tiếp"}</span>
