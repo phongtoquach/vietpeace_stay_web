@@ -263,7 +263,7 @@ export default function HomePage() {
               </p>
             </div>
             <Link
-              to="/search-accommodations"
+              to="/search-accommodations?onlyFeatured=1"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -278,7 +278,7 @@ export default function HomePage() {
                 transition: 'background-color var(--transition-fast)'
               }}
             >
-              <span>Xem tất cả chỗ nghỉ</span>
+              <span>Xem tất cả</span>
               <ArrowRight style={{ width: '14px', height: '14px' }} />
             </Link>
           </div>
