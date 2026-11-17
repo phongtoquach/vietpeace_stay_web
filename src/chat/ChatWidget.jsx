@@ -1,4 +1,5 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   X,
   Send,
@@ -21,6 +22,8 @@ import {
   getOutgoingReceiptMeta,
 } from "./chatUtils";
 import "./chat.css";
+import ChatMessageText from "./ChatMessageText";
+import { navigationLinksFromMessages } from "./chatNavigation";
 
 function ConciergeChatLogo() {
   return (
@@ -47,28 +50,6 @@ function ConciergeChatLogo() {
       />
     </svg>
   );
-}
-
-function renderFormattedText(text) {
-  if (!text) return null;
-  const lines = String(text).split(/\r?\n/);
-  return lines.map((line, i) => {
-    const parts = line.split(/(\*\*[^*]+\*\*|\*[^\s*](?:[^*\n]*[^\s*])?\*)/g);
-    return (
-      <React.Fragment key={i}>
-        {parts.map((part, j) => {
-          if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-            return <strong key={j}>{part.slice(2, -2)}</strong>;
-          }
-          if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
-            return <em key={j}>{part.slice(1, -1)}</em>;
-          }
-          return <React.Fragment key={j}>{part}</React.Fragment>;
-        })}
-        {i < lines.length - 1 && <br />}
-      </React.Fragment>
-    );
-  });
 }
 
 function secondsRemaining(isoString, nowMs) {
@@ -211,6 +192,10 @@ function HandoffRatingBox({ handoffId, managerName, onSubmit, onDismiss }) {
 }
 
 export default function ChatWidget() {
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.chatNavigation) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [location.key, location.state?.chatNavigation]);
   const {
     isOpen,
     openChatWidget,
@@ -243,6 +228,7 @@ export default function ChatWidget() {
     submitRating,
     emitTyping,
   } = useChat();
+  const legacyNavigationLinks = useMemo(() => navigationLinksFromMessages(activeMessages), [activeMessages]);
 
   const [draft, setDraft] = useState("");
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -570,9 +556,19 @@ export default function ChatWidget() {
                     <strong className="tabular-nums">{formatCountdownSeconds(waitSecs)}</strong>
                   </span>
                 </div>
-                <button type="button" className="vps-cancel-wait-btn" onClick={cancelHumanHandoff}>
-                  Hủy chờ
-                </button>
+                <div className="vps-subbar-right">
+                  {showRateTrigger && (
+                    <RateTriggerButton
+                      buttonRef={rateTriggerRef}
+                      isOpen={isRatingOpen}
+                      controlsId={ratingPopoverId}
+                      onClick={() => toggleRatingPopover(rateableHandoffId)}
+                    />
+                  )}
+                  <button type="button" className="vps-cancel-wait-btn" onClick={cancelHumanHandoff}>
+                    Hủy chờ
+                  </button>
+                </div>
               </div>
             )}
 
@@ -616,6 +612,7 @@ export default function ChatWidget() {
               >
                 {canRateHandoff ? (
                   <HandoffRatingBox
+                    key={rateableHandoffId}
                     handoffId={rateableHandoffId}
                     managerName={
                       activeConversation?.pendingRatingManagerName ||
@@ -758,7 +755,7 @@ export default function ChatWidget() {
                   key={msg.id || msg.clientMessageId || index}
                   className={`vps-msg-row ${meta.isSelf ? "self" : "bot"}${
                     isGroupedWithPrev ? " is-grouped" : ""
-                  }${msg.payload ? " has-card" : ""}`}
+                  }${msg.payload && msg.messageType !== "TEXT" ? " has-card" : ""}`}
                 >
                   <div className="vps-msg-col">
                     {showSenderHeader && (
@@ -769,12 +766,14 @@ export default function ChatWidget() {
                         <span className="vps-msg-sender">{meta.label}</span>
                       </div>
                     )}
-                    {msg.payload ? (
+                    {msg.payload && msg.messageType !== "TEXT" ? (
                       <MessageCard
                         message={msg}
                         onSelectDestination={selectDestinationInChat}
                         onSelectProperty={selectPropertyInChat}
                         onRequestHandoff={requestHumanHandoff}
+                        onNavigate={closeChatWidget}
+                        disabled={loading}
                       />
                     ) : (
                       <div
@@ -784,7 +783,9 @@ export default function ChatWidget() {
                           isGroupedWithNext ? " is-grouped-bottom" : ""
                         }`}
                       >
-                        <div className="vps-msg-text">{renderFormattedText(msg.content)}</div>
+                        <div className="vps-msg-text"><ChatMessageText text={msg.content} onNavigate={closeChatWidget}
+                          legacyNavigationLinks={legacyNavigationLinks}
+                          navigationLinks={msg.payload?.kind === "CHAT_TEXT" ? msg.payload.navigationLinks || [] : null} /></div>
                         <span className="vps-msg-time">{formatClockTime(msg.createdAt)}</span>
                       </div>
                     )}
@@ -827,7 +828,7 @@ export default function ChatWidget() {
                     <div className={`vps-msg-bubble bot${isStreamingGrouped ? " is-grouped-top" : ""}`}>
                       <div className="vps-msg-text">
                         {activeStreaming.text ? (
-                          renderFormattedText(activeStreaming.text)
+                          <ChatMessageText text={activeStreaming.text} streaming />
                         ) : (
                           <span className="vps-typing-dots">
                             <i /> <i /> <i />
@@ -853,6 +854,7 @@ export default function ChatWidget() {
                 key={`${handoffGuideState.mode || "PICK_LOCATION"}-${handoffGuideState.location?.id || "all"}-${handoffGuideState.property?.accommodationId || ""}`}
                 guideState={handoffGuideState}
                 initialLocations={featuredLocations}
+                disabled={loading}
                 onSelectProperty={(accomId, opts) => {
                   setHandoffGuideState({ open: false });
                   selectPropertyInChat(accomId, opts);

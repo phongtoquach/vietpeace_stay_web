@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   MapPin,
   Star,
@@ -19,6 +19,9 @@ import {
 } from "lucide-react";
 import { webChatClient } from "./ChatClient";
 import { formatVnd, resolveMediaUrl } from "./chatUtils";
+import { buildChatBookingTarget } from "./chatBooking";
+import { buildChatPropertyTarget, buildChatBookingDetailTarget, resolvePropertyWebsite, propertyPhoneLinks } from "./chatNavigation";
+import { customerLoginHref } from "../utils/authReturnUrl";
 
 function StarStrip({ count }) {
   const n = Number(count || 0);
@@ -53,7 +56,7 @@ function PropertySubline({ label, minPrice, addressLine }) {
   );
 }
 
-function renderPropertyMiniRow(p, { onSelectProperty, showLocationTag = false, isDiscussed = false }) {
+function renderPropertyMiniRow(p, { onSelectProperty, showLocationTag = false, isDiscussed = false, disabled = false }) {
   const pid = Number(p.accommodationId || p.id);
   const pname = p.accommodationName || p.name || "";
   return (
@@ -75,6 +78,7 @@ function renderPropertyMiniRow(p, { onSelectProperty, showLocationTag = false, i
       <button
         type="button"
         className="vps-btn-primary-xs"
+        disabled={disabled}
         onClick={() => onSelectProperty(pid, { autoHandoff: true })}
       >
         {p.hasActiveManager ? "Gặp Quản lý" : "Mở & xem liên hệ"}
@@ -83,7 +87,7 @@ function renderPropertyMiniRow(p, { onSelectProperty, showLocationTag = false, i
   );
 }
 
-export function HandoffGuideCard({ guideState = {}, initialLocations = [], onSelectProperty, onClose }) {
+export function HandoffGuideCard({ guideState = {}, initialLocations = [], onSelectProperty, onClose, disabled = false }) {
   const initialMode = guideState?.mode || "PICK_LOCATION";
   const discussedList = Array.isArray(guideState?.discussedProperties) ? guideState.discussedProperties : [];
   const discussedIdSet = new Set(discussedList.map((d) => Number(d.accommodationId)));
@@ -218,6 +222,7 @@ export function HandoffGuideCard({ guideState = {}, initialLocations = [], onSel
             <button
               type="button"
               className="vps-btn-primary-xs"
+              disabled={disabled}
               onClick={() => onSelectProperty(Number(confirmProp.accommodationId), { autoHandoff: true })}
             >
               {confirmProp.hasActiveManager ? "Gặp Quản lý" : "Mở & xem liên hệ"}
@@ -244,6 +249,7 @@ export function HandoffGuideCard({ guideState = {}, initialLocations = [], onSel
               renderPropertyMiniRow(p, {
                 onSelectProperty,
                 showLocationTag: true,
+                disabled,
               }),
             )}
           </div>
@@ -271,6 +277,7 @@ export function HandoffGuideCard({ guideState = {}, initialLocations = [], onSel
                 renderPropertyMiniRow(p, {
                   onSelectProperty,
                   isDiscussed: discussedIdSet.has(Number(p.accommodationId || p.id)),
+                  disabled,
                 }),
               )}
             </div>
@@ -303,10 +310,17 @@ export function HandoffGuideCard({ guideState = {}, initialLocations = [], onSel
   );
 }
 
-export function MessageCard({ message, onSelectDestination, onSelectProperty, onRequestHandoff }) {
+export function MessageCard({ message, onSelectDestination, onSelectProperty, onRequestHandoff, onNavigate, disabled = false }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const payload = message?.payload;
   if (!payload) return null;
+
+  function navigateToPage(url, options = {}) {
+    if (!url) return;
+    navigate(url, { ...options, state: { ...options.state, chatNavigation: true } });
+    onNavigate?.();
+  }
 
   // 1. HOME Destination Quick Chips
   if (payload.kind === "HOME_DESTINATIONS") {
@@ -323,6 +337,7 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
               key={loc.id}
               type="button"
               className="vps-dest-pill"
+              disabled={disabled}
               onClick={() => onSelectDestination?.(loc)}
             >
               <span>{loc.name}</span>
@@ -370,6 +385,7 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
                     <button
                       type="button"
                       className="vps-btn-outline-xs"
+                      disabled={disabled}
                       onClick={() => onSelectProperty?.(item.accommodationId, { autoHandoff: false })}
                     >
                       <Bot size={12} />
@@ -378,6 +394,7 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
                     <button
                       type="button"
                       className="vps-btn-primary-xs"
+                      disabled={disabled}
                       onClick={() => onSelectProperty?.(item.accommodationId, { autoHandoff: true })}
                     >
                       <UserCheck size={12} />
@@ -396,6 +413,11 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
   // 3. Shopee-style Pinned Property Card when opening chat on Accommodation Detail
   if (payload.kind === "PROPERTY_ATTACHMENT") {
     const areaOrType = payload.locationName || payload.accommodationTypeName;
+    const propertyTarget = buildChatPropertyTarget(payload, location.search);
+    const website = resolvePropertyWebsite(payload.websiteUrl);
+    const phones = propertyPhoneLinks(payload.phone);
+    const email = typeof payload.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email.trim())
+      ? payload.email.trim() : null;
     return (
       <div className="vps-card vps-card--attachment">
         <div className="vps-attachment-badge">Đang xem cơ sở</div>
@@ -432,27 +454,31 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
           <div className="vps-contact-strip">
             {payload.phone && (
               <span>
-                <Phone size={11} /> {payload.phone}
+                <Phone size={11} /> {phones.length ? phones.map((phone, index) => (
+                  <span key={phone.href}>{index > 0 ? " - " : ""}<a href={phone.href}>{phone.label}</a></span>
+                )) : payload.phone}
               </span>
             )}
             {payload.email && (
               <span>
-                <Mail size={11} /> {payload.email}
+                <Mail size={11} /> {email ? <a href={`mailto:${email}`}>{email}</a> : payload.email}
               </span>
             )}
             {payload.websiteUrl && (
               <span>
-                <Globe size={11} /> Website cơ sở
+                <Globe size={11} /> {website
+                  ? <a href={website} target="_blank" rel="noopener noreferrer">Website cơ sở</a>
+                  : "Website cơ sở chưa khả dụng"}
               </span>
             )}
           </div>
         )}
         <div className="vps-attachment-actions">
-          {payload.detailUrl && (
+          {propertyTarget && (
             <button
               type="button"
               className="vps-btn-outline-xs"
-              onClick={() => navigate(payload.detailUrl)}
+              onClick={() => navigateToPage(propertyTarget)}
             >
               Xem cơ sở
             </button>
@@ -460,6 +486,7 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
           <button
             type="button"
             className="vps-btn-primary-xs"
+            disabled={disabled}
             onClick={() => payload.accommodationId
               ? onSelectProperty?.(Number(payload.accommodationId), { autoHandoff: true })
               : onRequestHandoff?.()}
@@ -485,7 +512,9 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
           </span>
         </div>
         <div className="vps-quote-list">
-          {options.slice(0, 3).map((opt, idx) => (
+          {options.slice(0, 3).map((opt, idx) => {
+            const booking = buildChatBookingTarget(payload, opt);
+            return (
             <div key={idx} className="vps-quote-option">
               <div className="vps-quote-opt-head">
                 <strong>{opt.label}</strong>
@@ -504,18 +533,24 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
                   </span>
                 )}
               </div>
-              {opt.bookingUrl && (
                 <button
                   type="button"
                   className="vps-btn-primary-xs vps-btn-full"
-                  onClick={() => navigate(opt.bookingUrl)}
+                  disabled={!booking}
+                  title={!booking ? "Báo giá thiếu thông tin phòng hoặc ngày lưu trú. Vui lòng yêu cầu báo giá lại." : undefined}
+                  onClick={() => {
+                    if (!booking) return;
+                    navigateToPage(booking.url, { state: { chatBookingSelection: {
+                      ...booking.draft, requestId: `${message.id || "quote"}-${idx}-${Date.now()}-${Math.random()}`,
+                    } } });
+                  }}
                 >
                   <CheckCircle2 size={13} />
                   <span>Xem phòng & đặt ngay</span>
                 </button>
-              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -530,7 +565,7 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
         <button
           type="button"
           className="vps-btn-primary-xs"
-          onClick={() => navigate(payload.loginUrl || "/login")}
+          onClick={() => navigateToPage(customerLoginHref({ returnUrl: `${location.pathname}${location.search}${location.hash}` }))}
         >
           <LogIn size={13} />
           <span>Đăng nhập VietPeace Stay</span>
@@ -541,6 +576,7 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
 
   // 6. Verified Booking Context Card
   if (payload.kind === "VERIFIED_BOOKING_CONTEXT") {
+    const bookingTarget = buildChatBookingDetailTarget(payload);
     return (
       <div className="vps-card vps-card--booking">
         <div className="vps-card-label">
@@ -556,6 +592,8 @@ export function MessageCard({ message, onSelectDestination, onSelectProperty, on
             Trạng thái: <b>{payload.status}</b> · Tổng: <b>{formatVnd(payload.totalAmount)}</b>
           </span>
         </div>
+        {bookingTarget && <button type="button" className="vps-btn-primary-xs vps-btn-full"
+          onClick={() => navigateToPage(bookingTarget)}>Xem đơn đặt phòng</button>}
       </div>
     );
   }

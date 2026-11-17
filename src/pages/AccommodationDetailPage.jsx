@@ -13,6 +13,7 @@ import LoginModal from '../components/LoginModal.jsx';
 import RoomTypePriceBreakdownTooltip from '../components/room_types/RoomTypePriceBreakdownTooltip';
 import { useAuth } from '../context/useAuth.js';
 import { useChat } from '../chat/ChatContext.jsx';
+import { MAX_CHAT_BOOKING_ROOMS, normalizeChatBookingDraft, chatBookingDraftFromParams } from '../chat/chatBooking.js';
 import { MessageCircle as ChatBubbleIcon, UserCheck as ChatManagerIcon } from 'lucide-react';
 import { formatVND, formatDateVN } from '../utils/bookingUtils.js';
 import {
@@ -128,7 +129,7 @@ export default function AccommodationDetailPage() {
         checkoutParam > checkinParam &&
         Number.isInteger(requestedRoomsCount) &&
         requestedRoomsCount > 0 &&
-        requestedRoomsCount <= 8,
+        requestedRoomsCount <= MAX_CHAT_BOOKING_ROOMS,
     );
     const appliedCheckin = isStaySearchValid ? checkinParam : '';
     const appliedCheckout = isStaySearchValid ? checkoutParam : '';
@@ -164,6 +165,8 @@ export default function AccommodationDetailPage() {
     const mountedRef = useRef(true);
     const loginRequestedRef = useRef(false);
     const previousUserRef = useRef(currentLoggedInUser);
+    const appliedChatBookingRef = useRef(null);
+    const roomSelectionRef = useRef(null);
 
     useEffect(() => {
         activeStayRef.current = stayKey;
@@ -380,7 +383,22 @@ export default function AccommodationDetailPage() {
             setPreviewError('');
             return;
         }
-        if (draftRef.current.key !== stayKey) {
+        const chatSelection = location.state?.chatBookingSelection;
+        const chatSelectionKey = chatSelection?.requestId || (searchParams.get('selection')
+            ? `url:${stayKey}:${searchParams.get('selection')}` : null);
+        const chatDraft = chatSelectionKey && appliedChatBookingRef.current !== chatSelectionKey
+            ? (chatSelection?.requestId ? normalizeChatBookingDraft(chatSelection) : chatBookingDraftFromParams(searchParams))
+            : null;
+        if (chatDraft && String(chatDraft.accommodationId) === hotelIdParam &&
+            chatDraft.checkinDate === appliedCheckin && chatDraft.checkoutDate === appliedCheckout) {
+            // A quote click is an explicit new selection, even on the same URL.
+            appliedChatBookingRef.current = chatSelectionKey;
+            const draft = makeDraft(chatDraft.selectedRooms);
+            draftRef.current = { key: stayKey, value: draft };
+            selectedItemsRef.current = [];
+            setSelectedItems([]);
+            storeDraft(draft);
+        } else if (draftRef.current.key !== stayKey) {
             const changedStay = draftRef.current.key !== null;
             const draft = changedStay ? makeDraft([]) : readSavedDraft();
             if (changedStay) {
@@ -404,7 +422,14 @@ export default function AccommodationDetailPage() {
         appliedRoomsCount,
         isStaySearchValid,
         location.key,
+        location.state?.chatBookingSelection,
     ]);
+
+    useEffect(() => {
+        if (location.hash === '#room-selection' && detailReady && isStaySearchValid && !previewLoading) {
+            roomSelectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [location.key, location.hash, detailReady, isStaySearchValid, previewLoading]);
 
     // LoginModal hiện có cập nhật AuthContext. Theo dõi thành công tại trang cha.
     useEffect(() => {
@@ -938,6 +963,8 @@ export default function AccommodationDetailPage() {
             ) : (
                 /* Room Types List and Sticky Booking Summary */
                 <main
+                    id="room-selection"
+                    ref={roomSelectionRef}
                     className="container-7xl"
                     style={{ paddingTop: '1.5rem', paddingBottom: '3rem' }}
                 >

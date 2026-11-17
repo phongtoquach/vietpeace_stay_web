@@ -11,6 +11,7 @@ import AuthContext from "../context/AuthContext";
 import { webChatClient } from "./ChatClient";
 import { usePageChatContext } from "./usePageChatContext";
 import { lastServerSequence, mergeChatMessages, updateAiStream } from "./chatState";
+import { mergeConversationRatingState } from "./chatRating";
 
 const ChatContext = createContext(null);
 
@@ -165,6 +166,7 @@ export function ChatProvider({ children }) {
   const receivedMessageKeysRef = useRef(new Set());
   const conversationRevisionRef = useRef(0);
   const expiredConversationIdsRef = useRef(new Set());
+  const ratedHandoffIdsRef = useRef(new Set());
   const manualContextPageKeyRef = useRef(null);
   const pendingPageSyncRef = useRef(null);
   const contextMutationVersionRef = useRef(0);
@@ -211,7 +213,7 @@ export function ChatProvider({ children }) {
     setConversations((prev) => {
       const cid = Number(conv.id);
       const existing = prev.find((c) => Number(c.id) === cid);
-      return [existing ? { ...existing, ...conv } : conv];
+      return [mergeConversationRatingState(existing, conv, ratedHandoffIdsRef.current)];
     });
   }, []);
 
@@ -223,6 +225,14 @@ export function ChatProvider({ children }) {
     upsertConversation(conv);
     return conv;
   }, [upsertConversation]);
+
+  const recordHandoffRating = useCallback((handoffId) => {
+    const hid = Number(handoffId);
+    if (!Number.isSafeInteger(hid) || hid < 1) return;
+    ratedHandoffIdsRef.current.add(hid);
+    conversationRevisionRef.current += 1;
+    setConversations((prev) => prev.map((c) => mergeConversationRatingState(c, {}, ratedHandoffIdsRef.current)));
+  }, []);
 
   const appendOrReplaceMessage = useCallback((cid, msg) => {
     if (!cid || !msg) return;
@@ -338,6 +348,12 @@ export function ChatProvider({ children }) {
       });
 
       socket.on("conversation:updated", (payload = {}) => {
+        if (payload.ratedHandoffId) {
+          recordHandoffRating(payload.ratedHandoffId);
+          const cid = activeIdRef.current;
+          if (cid) refreshConversation(cid).catch(() => {});
+          return;
+        }
         const patch = payload.conversation
           ? payload.conversation
           : payload.conversationId
@@ -374,15 +390,10 @@ export function ChatProvider({ children }) {
       });
 
       socket.on("rating:submitted", (payload = {}) => {
-        const cid = Number(payload.conversationId || 0);
-        if (!cid) return;
-        setConversations((prev) =>
-          prev.map((c) =>
-            Number(c.id) === cid
-              ? { ...c, hasRatedHandoff: true, pendingRatingHandoffId: null }
-              : c,
-          ),
-        );
+        recordHandoffRating(payload.handoffId);
+        // A carried handoff can belong to a previous conversation ID.
+        const cid = activeIdRef.current;
+        if (cid) refreshConversation(cid).catch(() => {});
       });
 
       socket.on("message:created", ({ conversationId, message }) => {
@@ -405,21 +416,26 @@ export function ChatProvider({ children }) {
         // Manager message safety net: immediately clear wait state & enable handoff rating
         if (message.senderType === "MANAGER" && message.visibility === "PUBLIC") {
           setConversations((prev) =>
-            prev.map((c) =>
-              Number(c.id) === cid
-                ? {
-                    ...c,
-                    handlingMode: c.handlingMode === "WAITING_HUMAN" ? "HUMAN" : c.handlingMode,
-                    managerWaitExpiresAt: null,
-                    handoffFirstHumanReplyAt:
-                      c.handoffFirstHumanReplyAt || message.createdAt || new Date().toISOString(),
-                    pendingRatingHandoffId:
-                      c.hasRatedHandoff
-                        ? c.pendingRatingHandoffId
-                        : c.pendingRatingHandoffId || message.handoffId || c.currentHandoffId || null,
-                  }
-                : c,
-            ),
+            prev.map((c) => {
+              const hid = Number(message.handoffId || c.currentHandoffId);
+              // A delayed reply from an older handoff must not change the live one.
+              if (Number(c.id) !== cid || !hid || hid !== Number(c.currentHandoffId)) return c;
+              return {
+                ...c,
+                handlingMode: c.handlingMode === "WAITING_HUMAN" ? "HUMAN" : c.handlingMode,
+                managerWaitExpiresAt: null,
+                handoffFirstHumanReplyAt:
+                  c.handoffFirstHumanReplyAt || message.createdAt || new Date().toISOString(),
+                pendingRatingHandoffId:
+                  c.hasRatedHandoff || ratedHandoffIdsRef.current.has(hid)
+                    ? c.pendingRatingHandoffId
+                    : hid,
+                pendingRatingManagerName:
+                  c.hasRatedHandoff || ratedHandoffIdsRef.current.has(hid)
+                    ? c.pendingRatingManagerName
+                    : message.senderName || c.assignedManagerName || null,
+              };
+            }),
           );
           refreshConversation(cid).catch(() => {});
         }
@@ -587,7 +603,7 @@ export function ChatProvider({ children }) {
         setSocketConnected(false);
       });
     },
-    [appendOrReplaceMessage, loadConversationMessages, refreshConversation, syncDelivered, syncReadIfVisible, upsertConversation],
+    [appendOrReplaceMessage, loadConversationMessages, refreshConversation, recordHandoffRating, syncDelivered, syncReadIfVisible, upsertConversation],
   );
 
   const ensureRealtimeConnected = useCallback(async () => {
@@ -618,7 +634,7 @@ export function ChatProvider({ children }) {
         if (revision !== conversationRevisionRef.current) return;
         setActor(boot.actor || null);
         const list = boot.conversations || [];
-        setConversations(list);
+        setConversations(list.map((c) => mergeConversationRatingState({}, c, ratedHandoffIdsRef.current)));
 
         if (boot.actor) {
           await ensureRealtimeConnected().catch(() => {});
@@ -660,6 +676,7 @@ export function ChatProvider({ children }) {
         lastDeliveredSentRef.current = {};
         receivedMessageKeysRef.current.clear();
         expiredConversationIdsRef.current.clear();
+        ratedHandoffIdsRef.current.clear();
         // Reset on every account change, including Customer A -> Customer B.
         setConversations([]);
         setMessagesByConv({});
@@ -946,20 +963,33 @@ export function ChatProvider({ children }) {
         if (!cid) return;
       }
       const epoch = sessionEpochRef.current;
-      manualContextPageKeyRef.current = pageContextRef.current.contextKey;
-      const updated = await runContextMutation(() => webChatClient.updateContext(cid, {
-        pageType: "LOCATION_SEARCH",
-        locationId: Number(locationObj.id),
-        checkin: pageContextRef.current.checkin,
-        checkout: pageContextRef.current.checkout,
-        rooms: pageContextRef.current.rooms,
-        adults: pageContextRef.current.adults,
-        children: pageContextRef.current.children,
-        attachContextCard: true,
-      }));
-      if (!updated || epoch !== sessionEpochRef.current) return;
-      upsertConversation(updated);
-      await loadConversationMessages(cid);
+      const previousManualContext = manualContextPageKeyRef.current;
+      let contextUpdated = false;
+      setLoading(true);
+      setStatusNotice("");
+      try {
+        manualContextPageKeyRef.current = pageContextRef.current.contextKey;
+        const updated = await runContextMutation(() => webChatClient.updateContext(cid, {
+          pageType: "LOCATION_SEARCH",
+          locationId: Number(locationObj.id),
+          checkin: pageContextRef.current.checkin,
+          checkout: pageContextRef.current.checkout,
+          rooms: pageContextRef.current.rooms,
+          adults: pageContextRef.current.adults,
+          children: pageContextRef.current.children,
+          attachContextCard: true,
+        }));
+        if (!updated || epoch !== sessionEpochRef.current) return;
+        contextUpdated = true;
+        upsertConversation(updated);
+        await loadConversationMessages(cid);
+      } catch (err) {
+        if (epoch !== sessionEpochRef.current) return;
+        if (!contextUpdated) manualContextPageKeyRef.current = previousManualContext;
+        setStatusNotice(err.message || "Không thể chọn điểm đến. Vui lòng thử lại.");
+      } finally {
+        if (epoch === sessionEpochRef.current) setLoading(false);
+      }
     },
     [conversations, openChatWidget, upsertConversation, loadConversationMessages, runContextMutation],
   );
@@ -1086,14 +1116,13 @@ export function ChatProvider({ children }) {
       const cid = activeIdRef.current;
       const res = await webChatClient.submitRating(handoffId, { rating, comment });
       if (epoch !== sessionEpochRef.current) return res;
+      recordHandoffRating(handoffId);
       if (cid) {
         setConversations((prev) =>
           prev.map((c) =>
             Number(c.id) === Number(cid)
               ? {
                   ...c,
-                  hasRatedHandoff: true,
-                  pendingRatingHandoffId: null,
                   lastSubmittedRating: res,
                 }
               : c,
@@ -1105,9 +1134,12 @@ export function ChatProvider({ children }) {
           ? `Đã ghi nhận đánh giá ${rating}/5 sao và gửi báo cáo tới Quản trị viên VietPeace Stay.`
           : `Cảm ơn bạn đã đánh giá ${rating}/5 sao chất lượng phục vụ!`,
       );
+      // Reveal the next unrated session instead of hiding all remaining ratings.
+      const currentId = activeIdRef.current;
+      if (currentId) await refreshConversation(currentId).catch(() => {});
       return res;
     },
-    [],
+    [recordHandoffRating, refreshConversation],
   );
 
   const emitTyping = useCallback((isTyping) => {
@@ -1128,22 +1160,25 @@ export function ChatProvider({ children }) {
     [conversations, activeConversationId],
   );
 
-  // Fallback polling while WAITING_HUMAN so timer/state clears even across transient socket drops
-  const activeWaitingId =
-    isOpen && activeConversation?.handlingMode === "WAITING_HUMAN" ? Number(activeConversation.id) : null;
+  // Claiming stops the wait timer before the manager's first reply. Keep syncing
+  // until that reply is observed, since a connected socket can still miss events.
+  const activeHumanSyncId = isOpen && (
+    activeConversation?.handlingMode === "WAITING_HUMAN" ||
+    (activeConversation?.handlingMode === "HUMAN" && !activeConversation?.handoffFirstHumanReplyAt)
+  ) ? Number(activeConversation.id) : null;
   useEffect(() => {
-    if (!activeWaitingId) return undefined;
+    if (!activeHumanSyncId) return undefined;
     const t = setInterval(() => {
-      refreshConversation(activeWaitingId)
+      refreshConversation(activeHumanSyncId)
         .then((conv) => {
           if (conv && conv.handlingMode !== "WAITING_HUMAN") {
-            loadConversationMessages(activeWaitingId).catch(() => {});
+            loadConversationMessages(activeHumanSyncId).catch(() => {});
           }
         })
         .catch(() => {});
     }, 4000);
     return () => clearInterval(t);
-  }, [activeWaitingId, refreshConversation, loadConversationMessages]);
+  }, [activeHumanSyncId, refreshConversation, loadConversationMessages]);
 
   const activeMessages = useMemo(
     () => (activeConversationId ? messagesByConv[Number(activeConversationId)] || [] : []),

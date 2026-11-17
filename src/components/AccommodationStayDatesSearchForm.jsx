@@ -3,6 +3,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Calendar, Bed, Search } from 'lucide-react';
 import { useAuth } from '../context/useAuth.js';
+import { MAX_CHAT_BOOKING_ROOMS } from '../chat/chatBooking.js';
 
 // Helpers for timezone-safe date conversion
 const parseDateString = (str) => {
@@ -113,8 +114,8 @@ export default function AccommodationStayDatesSearchForm({
     }
 
     const roomsNum = parseInt(rooms, 10);
-    if (isNaN(roomsNum) || roomsNum < 1 || roomsNum > 8) {
-      showToast('Số lượng phòng cần tìm phải từ 1 đến 8 phòng', 'error');
+    if (isNaN(roomsNum) || roomsNum < 1 || roomsNum > MAX_CHAT_BOOKING_ROOMS) {
+      showToast(`Số lượng phòng cần tìm phải từ 1 đến ${MAX_CHAT_BOOKING_ROOMS} phòng`, 'error');
       return;
     }
 
@@ -197,7 +198,7 @@ export default function AccommodationStayDatesSearchForm({
               onChange={(e) => setRooms(parseInt(e.target.value, 10))}
               className="stay-search-select"
             >
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
+              {Array.from({ length: MAX_CHAT_BOOKING_ROOMS }, (_, i) => i + 1).map(num => (
                 <option key={num} value={num}>
                   {num} phòng
                 </option>
