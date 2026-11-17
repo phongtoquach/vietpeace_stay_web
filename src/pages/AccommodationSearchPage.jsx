@@ -90,6 +90,10 @@ export function buildSearchBody(params) {
         body[key] = [...new Set(tokens.map(Number))];
     }
 
+    if (params.get('onlyFeatured') === '1') {
+        body.onlyFeatured = 1;
+    }
+
     const checkin = params.get('checkin');
     const checkout = params.get('checkout');
     if (checkin) body.checkinDate = checkin;
@@ -122,6 +126,7 @@ export default function AccommodationSearchPage() {
     const parsedPage = parseInt(rawPage, 10);
     const currentPage = !isNaN(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
+    const onlyFeatured = searchParams.get('onlyFeatured') === '1';
     const selectedTypeIds = readSelectedIds(searchParams.get('accommodationTypeIds')).map(String);
     const selectedRatings = readSelectedIds(searchParams.get('starRatings'));
     const selectedAmenityIds = readSelectedIds(searchParams.get('amenityIds'));
@@ -446,6 +451,12 @@ export default function AccommodationSearchPage() {
             } else {
                 nextParams.delete('amenityIds');
             }
+        } else if (type === 'onlyFeatured') {
+            if (value) {
+                nextParams.set('onlyFeatured', '1');
+            } else {
+                nextParams.delete('onlyFeatured');
+            }
         } else if (type === 'sort') {
             if (value && value !== 'default') {
                 nextParams.set('sort', value);
@@ -467,6 +478,7 @@ export default function AccommodationSearchPage() {
         nextParams.delete('accommodationTypeIds');
         nextParams.delete('propertyType');
         nextParams.delete('starRatings');
+        nextParams.delete('onlyFeatured');
         nextParams.delete('amenityIds');
         nextParams.delete('amenities');
         nextParams.delete('minPrice');
@@ -847,6 +859,19 @@ export default function AccommodationSearchPage() {
                                     <span>{formatVND(MIN_BOUND)}</span>
                                     <span>{formatVND(MAX_BOUND)}</span>
                                 </div>
+                            </div>
+
+                            <div className="sidebar-filter-section">
+                                <label className="filter-checkbox-row">
+                                    <input
+                                        type="checkbox"
+                                        checked={onlyFeatured}
+                                        onChange={(event) => updateFilterParam('onlyFeatured', event.target.checked)}
+                                        disabled={isLoading}
+                                        className="filter-checkbox"
+                                    />
+                                    <span>Chỉ xem chỗ nghỉ nổi bật</span>
+                                </label>
                             </div>
 
                             {/* Filter 4: Amenities using actual numeric IDs */}
