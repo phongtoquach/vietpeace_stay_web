@@ -1,145 +1,294 @@
-import { useState } from 'react';
-import { useAuth } from '../context/useAuth.js';
-import { MapPin, Phone, Mail, Send } from 'lucide-react';
+import { ArrowUpRight, Mail, MapPin, Phone } from 'lucide-react';
+
+const supportEmail = 'reservation@vietpeacestay.vn';
+
+const offices = [
+    {
+        id: 'ho-chi-minh',
+        name: 'Trụ sở chính TP. Hồ Chí Minh',
+        address: 'Tòa nhà VietPeace Stay Tower, 15 Tôn Đức Thắng, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
+        phone: '028 3822 9999',
+        phoneHref: 'tel:+842838229999',
+    },
+    {
+        id: 'ha-noi',
+        name: 'Chi nhánh phía Bắc',
+        address: '28 Phố Lý Thường Kiệt, Quận Hoàn Kiếm, TP. Hà Nội',
+        phone: '024 3936 8888',
+        phoneHref: 'tel:+842439368888',
+    },
+];
+
+const contactPageStyles = `
+    .vp-contact {
+        --contact-ink: #233b53;
+        --contact-muted: #526375;
+        --contact-accent: #9a6414;
+        --contact-border: #e9e0d2;
+        background: #fff9ed;
+        color: var(--contact-ink);
+        padding-bottom: clamp(3rem, 7vw, 5.5rem);
+    }
+
+    .vp-contact * {
+        box-sizing: border-box;
+    }
+
+    .vp-contact .vp-contact__container {
+        width: min(68rem, calc(100% - 2.5rem));
+        margin-inline: auto;
+    }
+
+    .vp-contact .vp-contact__hero {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        padding: clamp(3.25rem, 8vw, 5.75rem) 0 5.25rem;
+        background: linear-gradient(115deg, #172c44 12%, #284963 100%);
+        color: #fff9ed;
+    }
+
+    .vp-contact .vp-contact__hero::after {
+        content: '';
+        position: absolute;
+        z-index: -1;
+        width: 32rem;
+        height: 32rem;
+        top: -14rem;
+        right: -3rem;
+        border: 1px solid rgb(245 184 46 / 30%);
+        border-radius: 50%;
+        box-shadow:
+            0 0 0 2.75rem rgb(245 184 46 / 8%),
+            0 0 0 5.5rem rgb(245 184 46 / 5%),
+            0 0 0 8.25rem rgb(245 184 46 / 3%);
+        pointer-events: none;
+    }
+
+    .vp-contact .vp-contact__hero h1 {
+        max-width: 16ch;
+        margin: 0;
+        color: inherit;
+        font-size: clamp(2.375rem, 6vw, 4.625rem);
+        font-weight: 700;
+        letter-spacing: -0.055em;
+        line-height: 1.08;
+        text-wrap: balance;
+    }
+
+    .vp-contact .vp-contact__hero p {
+        max-width: 34rem;
+        margin: 1rem 0 0;
+        color: #e2e9ef;
+        font-size: clamp(1rem, 2vw, 1.125rem);
+        line-height: 1.65;
+    }
+
+    .vp-contact .vp-contact__grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+
+    .vp-contact .vp-contact__channels {
+        position: relative;
+        z-index: 1;
+        margin-top: -2rem;
+    }
+
+    .vp-contact .vp-contact__channel,
+    .vp-contact .vp-contact__office {
+        min-width: 0;
+        padding: clamp(1.125rem, 3vw, 1.75rem);
+        border: 1px solid var(--contact-border);
+        border-radius: 1.25rem;
+        background: #fff;
+    }
+
+    .vp-contact .vp-contact__channel {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: clamp(0.625rem, 2vw, 1rem);
+        box-shadow: 0 10px 26px rgb(35 59 83 / 8%);
+        color: var(--contact-ink);
+        text-decoration: none;
+        transition: border-color 160ms ease, background-color 160ms ease;
+    }
+
+    .vp-contact .vp-contact__channel:hover {
+        border-color: #d8af63;
+        background: #fffcf5;
+    }
+
+    .vp-contact .vp-contact__icon {
+        display: grid;
+        place-items: center;
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: 0.875rem;
+        background: #fff1cd;
+        color: var(--contact-accent);
+    }
+
+    .vp-contact .vp-contact__label,
+    .vp-contact .vp-contact__value {
+        display: block;
+    }
+
+    .vp-contact .vp-contact__label {
+        margin-bottom: 0.25rem;
+        color: var(--contact-muted);
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+
+    .vp-contact .vp-contact__value {
+        font-size: clamp(1rem, 2.2vw, 1.375rem);
+        font-weight: 700;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+    }
+
+    .vp-contact .vp-contact__arrow {
+        color: var(--contact-accent);
+    }
+
+    .vp-contact .vp-contact__offices {
+        margin-top: clamp(2.5rem, 6vw, 4rem);
+    }
+
+    .vp-contact .vp-contact__offices h2 {
+        margin: 0 0 1rem;
+        color: inherit;
+        font-size: clamp(1.5rem, 3vw, 2rem);
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.2;
+    }
+
+    .vp-contact .vp-contact__office {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .vp-contact .vp-contact__office .vp-contact__icon {
+        flex: 0 0 auto;
+    }
+
+    .vp-contact .vp-contact__office h3 {
+        margin: 0 0 0.5rem;
+        color: inherit;
+        font-size: 1.125rem;
+        font-weight: 700;
+        line-height: 1.35;
+    }
+
+    .vp-contact .vp-contact__office address {
+        margin: 0;
+        color: var(--contact-muted);
+        font-size: 0.9375rem;
+        font-style: normal;
+        line-height: 1.6;
+    }
+
+    .vp-contact .vp-contact__office-phone {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.75rem;
+        margin-top: 0.375rem;
+        color: var(--contact-ink);
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .vp-contact .vp-contact__office-phone:hover {
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+    }
+
+    .vp-contact a:focus-visible {
+        outline: 2px solid var(--contact-accent);
+        outline-offset: 4px;
+    }
+
+    @media (max-width: 42rem) {
+        .vp-contact .vp-contact__grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .vp-contact .vp-contact__hero::after {
+            right: -21rem;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .vp-contact .vp-contact__channel {
+            transition: none;
+        }
+    }
+`;
 
 export default function ContactPage() {
-  const { showToast } = useAuth();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [message, setMessage] = useState('');
+    return (
+        <div className="vp-contact">
+            <style>{contactPageStyles}</style>
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setName('');
-    setEmail('');
-    setPhone('');
-    setMessage('');
-    showToast('Tin nhắn của quý khách đã được gửi! CSKH sẽ phản hồi trong 30 phút.', 'success');
-  };
-
-  return (
-    <div className="min-h-screen bg-[#FFF9ED] py-12 pb-24">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6">
-        
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <span className="text-xs font-extrabold uppercase tracking-widest text-[#F5B82E] bg-[#FFF1C2]/60 px-3 py-1 rounded-full inline-block mb-2">
-            Trung tâm trợ giúp 24/7
-          </span>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-[#233B53] tracking-tight">
-            Liên Hệ Với VinaStay Group
-          </h1>
-          <p className="text-sm sm:text-base text-[#667085] mt-2">
-            Đội ngũ tư vấn viên luôn sẵn sàng giải đáp thắc mắc và hỗ trợ đặt phòng.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-          
-          {/* Contact Information */}
-          <div className="md:col-span-5 space-y-6">
-            <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-xs space-y-4">
-              <h2 className="text-base font-bold text-[#233B53] pb-2 border-b border-[#E5E7EB]">
-                Trụ Sở Chính TP.HCM
-              </h2>
-              <div className="flex items-start gap-3 text-xs sm:text-sm text-[#667085]">
-                <MapPin className="w-4 h-4 text-[#F5B82E] shrink-0 mt-0.5" />
-                <span>Tòa nhà VinaStay Tower, 15 Tôn Đức Thắng, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs sm:text-sm text-[#667085]">
-                <Phone className="w-4 h-4 text-[#F5B82E] shrink-0" />
-                <span>1900 6868 · 028 3822 9999</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs sm:text-sm text-[#667085]">
-                <Mail className="w-4 h-4 text-[#F5B82E] shrink-0" />
-                <span>reservation@vinastaygroup.vn</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-xs space-y-3">
-              <h2 className="text-base font-bold text-[#233B53] pb-2 border-b border-[#E5E7EB]">
-                Chi Nhánh Phía Bắc
-              </h2>
-              <div className="flex items-start gap-3 text-xs sm:text-sm text-[#667085]">
-                <MapPin className="w-4 h-4 text-[#F5B82E] shrink-0 mt-0.5" />
-                <span>28 Phố Lý Thường Kiệt, Quận Hoàn Kiếm, TP. Hà Nội</span>
-              </div>
-              <div className="flex items-center gap-3 text-xs sm:text-sm text-[#667085]">
-                <Phone className="w-4 h-4 text-[#F5B82E] shrink-0" />
-                <span>024 3936 8888</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Contact Message Form */}
-          <div className="md:col-span-7 bg-white rounded-2xl border border-[#E5E7EB] p-6 sm:p-8 shadow-xs">
-            <h2 className="text-lg font-bold text-[#233B53] mb-4 pb-2 border-b border-[#E5E7EB]">
-              Gửi Yêu Cầu Hỗ Trợ Trực Tuyến
-            </h2>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-[#667085] block mb-1">Họ và tên</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Nguyễn Văn An"
-                  className="w-full bg-[#FFF9ED] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#233B53]"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-[#667085] block mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="email@example.com"
-                    className="w-full bg-[#FFF9ED] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#233B53]"
-                    required
-                  />
+            <header className="vp-contact__hero">
+                <div className="vp-contact__container">
+                    <h1>Liên hệ VietPeace Stay</h1>
+                    <p>Liên hệ với đội ngũ hỗ trợ nếu bạn cần tư vấn đặt phòng hoặc trợ giúp với đơn đặt phòng hiện tại.</p>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-[#667085] block mb-1">Số điện thoại</label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="0912 345 678"
-                    className="w-full bg-[#FFF9ED] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#233B53]"
-                    required
-                  />
+            </header>
+
+            <div className="vp-contact__container">
+                <div className="vp-contact__grid vp-contact__channels">
+                    <a className="vp-contact__channel" href="tel:19006868">
+                        <span className="vp-contact__icon" aria-hidden="true">
+                            <Phone size={21} />
+                        </span>
+                        <span>
+                            <span className="vp-contact__label">Hotline hỗ trợ 24/7</span>
+                            <span className="vp-contact__value">1900 6868</span>
+                        </span>
+                        <ArrowUpRight className="vp-contact__arrow" size={18} aria-hidden="true" />
+                    </a>
+
+                    <a className="vp-contact__channel" href={`mailto:${supportEmail}`}>
+                        <span className="vp-contact__icon" aria-hidden="true">
+                            <Mail size={21} />
+                        </span>
+                        <span>
+                            <span className="vp-contact__label">Email đặt phòng</span>
+                            <span className="vp-contact__value">{supportEmail}</span>
+                        </span>
+                        <ArrowUpRight className="vp-contact__arrow" size={18} aria-hidden="true" />
+                    </a>
                 </div>
-              </div>
 
-              <div>
-                <label className="text-xs font-bold text-[#667085] block mb-1">Nội dung yêu cầu</label>
-                <textarea
-                  rows={4}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Quý khách cần hỗ trợ đặt phòng, điều chỉnh ngày, dịch vụ xe đưa đón..."
-                  className="w-full bg-[#FFF9ED] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-sm font-bold text-[#233B53]"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 bg-[#F5B82E] hover:bg-[#E5A81E] text-[#233B53] font-bold text-sm rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Send className="w-4 h-4 text-[#233B53]" />
-                <span>Gửi Tin Nhắn</span>
-              </button>
-            </form>
-          </div>
-
+                <section className="vp-contact__offices">
+                    <h2>Văn phòng liên hệ</h2>
+                    <div className="vp-contact__grid">
+                        {offices.map((office) => (
+                            <article className="vp-contact__office" key={office.id}>
+                                <span className="vp-contact__icon" aria-hidden="true">
+                                    <MapPin size={21} />
+                                </span>
+                                <div>
+                                    <h3>{office.name}</h3>
+                                    <address>{office.address}</address>
+                                    <a className="vp-contact__office-phone" href={office.phoneHref}>
+                                        <Phone size={16} aria-hidden="true" />
+                                        {office.phone}
+                                    </a>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+            </div>
         </div>
-
-      </div>
-    </div>
-  );
+    );
 }

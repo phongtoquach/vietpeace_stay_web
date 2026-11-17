@@ -20,6 +20,8 @@ import "react-datepicker/dist/react-datepicker.css";
 import AppContext from "../context/AppContext.jsx";
 import { useAuth } from "../context/useAuth.js";
 
+import { MAX_CHAT_BOOKING_ROOMS } from '../chat/chatBooking.js';
+
 // Chuyển YYYY-MM-DD thành Date theo giờ local.
 function parseDateString(value) {
     if (!value) return null;
@@ -295,9 +297,9 @@ export default function AccommodationSearchForm({ className = "" }) {
             return;
         }
 
-        if (!Number.isInteger(rooms) || rooms < 1 || rooms > 8) {
+        if (!Number.isInteger(rooms) || rooms < 1 || rooms > MAX_CHAT_BOOKING_ROOMS) {
             showToast(
-                "Số phòng phải từ 1 đến 8.",
+                "Số phòng phải từ 1 đến " + MAX_CHAT_BOOKING_ROOMS,
                 "error"
             );
             return;
@@ -638,12 +640,12 @@ export default function AccommodationSearchForm({ className = "" }) {
                                         onClick={() =>
                                             setRooms(
                                                 Math.min(
-                                                    8,
+                                                    MAX_CHAT_BOOKING_ROOMS,
                                                     rooms + 1
                                                 )
                                             )
                                         }
-                                        disabled={rooms >= 8}
+                                        disabled={rooms >= MAX_CHAT_BOOKING_ROOMS}
                                         className="counter-btn"
                                         aria-label="Tăng số phòng"
                                     >
