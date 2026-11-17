@@ -54,7 +54,7 @@ export function buildSearchBody(params) {
     const body = {
         sort: params.get('sort') || 'default',
         page: 1,
-        pageSize: PAGE_SIZE,
+        //pageSize: PAGE_SIZE,
     };
 
     // Tương thích URL cũ; API dùng tên sort mới.
@@ -217,7 +217,7 @@ export default function AccommodationSearchPage() {
     const [resultPagination, setResultPagination] = useState({
         enabled: PAGE_SIZE > 0,
         page: 1,
-        pageSize: PAGE_SIZE,
+        //pageSize: PAGE_SIZE,
         total: 0,
         totalPages: 0,
     });
@@ -244,7 +244,7 @@ export default function AccommodationSearchPage() {
             setResultPagination({
                 enabled: PAGE_SIZE > 0,
                 page: 1,
-                pageSize: PAGE_SIZE,
+                //pageSize: PAGE_SIZE,
                 total: 0,
                 totalPages: 0,
             });
